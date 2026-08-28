@@ -5,7 +5,7 @@
       "name": "api: dev (tsx watch)",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/apps/api",
+      "cwd": "${workspaceFolder}/backend",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
       "console": "integratedTerminal",

@@ -8,8 +8,12 @@ build
 .vscode/*.local
 *.tsbuildinfo
 *.stackdump
-apps/api/prisma/seed.js
-apps/api/prisma/seed.js.map
+backend/prisma/seed.js
+backend/prisma/seed.js.map
 
 # pnpm
 .pnpm-store
+
+# App/ is its own independent git repository (Expo mobile app), not part of
+# this workspace — ignored here so it's never tracked/embedded as a gitlink.
+/App/

@@ -2,7 +2,7 @@
   "name": "checknbook",
   "version": "0.1.0",
   "private": true,
-  "description": "CheckNBook monorepo — apps/api (Express + Prisma) + apps/web (React + Vite) + packages/types",
+  "description": "CheckNBook monorepo — backend (Express + Prisma) + frontend (React + Vite) + packages/types",
   "packageManager": "pnpm@10.34.1",
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"pnpm --filter @checknbook/api dev\" \"pnpm --filter @checknbook/web dev\"",

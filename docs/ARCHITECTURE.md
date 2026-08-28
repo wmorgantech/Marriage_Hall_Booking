@@ -28,58 +28,57 @@
 
 ## 3. Repo Layout
 
-> pnpm workspace monorepo (`pnpm-workspace.yaml`: `apps/*`, `packages/*`). This reflects the actual current layout — earlier drafts of this doc described a `backend/`+`frontend/` split, which is not what was built.
+> pnpm workspace monorepo (`pnpm-workspace.yaml`: `frontend`, `backend`, `packages/*`). `backend`/`frontend` are top-level siblings of the repo root — not nested under an `apps/` folder. The companion Expo mobile app lives in the sibling `App/` folder as its own independent git repository, outside this workspace.
 
 ```
-MHall Availability checker/
-├── apps/
-│   ├── api/
-│   │   ├── prisma/
-│   │   │   ├── schema.prisma
-│   │   │   ├── seed.ts
-│   │   │   └── migrations/
-│   │   ├── scripts/
-│   │   │   └── seed-admins.ts
-│   │   ├── src/
-│   │   │   ├── index.ts             # Express bootstrap
-│   │   │   ├── lib/
-│   │   │   │   ├── prisma.ts        # PrismaClient singleton
-│   │   │   │   └── jwt.ts
-│   │   │   ├── middleware/
-│   │   │   │   └── auth.ts          # verifies JWT, attaches req.user; also exports requireRole()
-│   │   │   └── routes/              # handlers, zod validation, and Prisma queries live directly here
-│   │   │       ├── auth.routes.ts
-│   │   │       ├── hall.routes.ts
-│   │   │       ├── availability.routes.ts
-│   │   │       ├── admin.routes.ts
-│   │   │       ├── areas.routes.ts
-│   │   │       └── settings.routes.ts
-│   │   ├── .env.example
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── web/
-│       ├── src/
-│       │   ├── main.tsx
-│       │   ├── App.tsx
-│       │   ├── api/client.ts
-│       │   ├── pages/
-│       │   │   ├── Search.tsx           # city + date picker, results list
-│       │   │   ├── HallDetails.tsx      # hall info + call/WhatsApp buttons
-│       │   │   ├── OwnerLogin.tsx
-│       │   │   ├── OwnerRegister.tsx
-│       │   │   ├── OwnerDashboard.tsx   # manage halls + calendar
-│       │   │   ├── AdminLogin.tsx
-│       │   │   ├── AdminDashboard.tsx
-│       │   │   └── AdminEditHall.tsx
-│       │   ├── components/
-│       │   ├── i18n/
-│       │   ├── data/
-│       │   └── styles/
-│       │       └── global.css
-│       ├── index.html
-│       ├── vite.config.ts
-│       ├── package.json
-│       └── tsconfig.json
+Marriage Hall Project/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   ├── seed.ts
+│   │   └── migrations/
+│   ├── scripts/
+│   │   └── seed-admins.ts
+│   ├── src/
+│   │   ├── index.ts             # Express bootstrap
+│   │   ├── lib/
+│   │   │   ├── prisma.ts        # PrismaClient singleton
+│   │   │   └── jwt.ts
+│   │   ├── middleware/
+│   │   │   └── auth.ts          # verifies JWT, attaches req.user; also exports requireRole()
+│   │   └── routes/              # handlers, zod validation, and Prisma queries live directly here
+│   │       ├── auth.routes.ts
+│   │       ├── hall.routes.ts
+│   │       ├── availability.routes.ts
+│   │       ├── admin.routes.ts
+│   │       ├── areas.routes.ts
+│   │       └── settings.routes.ts
+│   ├── .env.example
+│   ├── package.json
+│   └── tsconfig.json
+├── frontend/
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── api/client.ts
+│   │   ├── pages/
+│   │   │   ├── Search.tsx           # city + date picker, results list
+│   │   │   ├── HallDetails.tsx      # hall info + call/WhatsApp buttons
+│   │   │   ├── OwnerLogin.tsx
+│   │   │   ├── OwnerRegister.tsx
+│   │   │   ├── OwnerDashboard.tsx   # manage halls + calendar
+│   │   │   ├── AdminLogin.tsx
+│   │   │   ├── AdminDashboard.tsx
+│   │   │   └── AdminEditHall.tsx
+│   │   ├── components/
+│   │   ├── i18n/
+│   │   ├── data/
+│   │   └── styles/
+│   │       └── global.css
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── package.json
+│   └── tsconfig.json
 ├── packages/
 │   └── types/               # shared DTOs (@checknbook/types), types-only, no build step
 │       └── src/index.ts
@@ -91,10 +90,11 @@ MHall Availability checker/
 ├── package.json              # workspace root scripts
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
-└── README.md
+├── README.md
+└── App/                      # Expo mobile app — separate git repo, not a workspace member
 ```
 
-Note: `apps/api` has no separate `controllers/`/`services/`/`validators/` layer — route handlers, `zod` schemas, and Prisma queries are written directly in each `routes/*.routes.ts` file. `@checknbook/types` is currently consumed by `apps/web` only; `apps/api` defines its own inline zod shapes rather than importing the shared package.
+Note: `backend` has no separate `controllers/`/`services/`/`validators/` layer — route handlers, `zod` schemas, and Prisma queries are written directly in each `routes/*.routes.ts` file. `@checknbook/types` is currently consumed by `frontend` only; `backend` declares the dependency but defines its own inline zod shapes rather than importing the shared package. Internal package identifiers (`@checknbook/api`, `@checknbook/web`) were kept unchanged even though the folders are now named `backend`/`frontend`.
 
 ## 4. Data Model
 

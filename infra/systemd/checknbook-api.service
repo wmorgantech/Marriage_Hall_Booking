@@ -18,9 +18,9 @@ Wants=postgresql.service
 [Service]
 Type=simple
 User=checknbook
-WorkingDirectory=/home/checknbook/app/apps/api
+WorkingDirectory=/home/checknbook/app/backend
 # Loads DATABASE_URL, JWT_SECRET, PORT, CORS_ORIGIN from this file
-EnvironmentFile=/home/checknbook/app/apps/api/.env
+EnvironmentFile=/home/checknbook/app/backend/.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure

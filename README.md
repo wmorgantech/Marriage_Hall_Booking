@@ -2,12 +2,12 @@
 
 City + date → instantly see which mandapams are free. Tap to call or WhatsApp the owner. No more ringing ten halls in a row.
 
-pnpm-workspace monorepo: **`apps/api`** (Express + Prisma) + **`apps/web`** (React + Vite) + **`packages/types`** (shared TS types) + **`infra/`** (Docker Compose for local Postgres).
+pnpm-workspace monorepo: **`backend`** (Express + Prisma) + **`frontend`** (React + Vite) + **`packages/types`** (shared TS types) + **`infra/`** (Docker Compose for local Postgres). The companion Expo mobile app lives in the sibling `App/` folder as its own independent git repository.
 
 ## Stack
 
-- **apps/web**: React 18 + TypeScript + Vite, mobile-first CSS, `react-day-picker`.
-- **apps/api**: Node.js 20 + Express + TypeScript, Prisma ORM, JWT auth, zod validation.
+- **frontend**: React 18 + TypeScript + Vite, mobile-first CSS, `react-day-picker`.
+- **backend**: Node.js 20 + Express + TypeScript, Prisma ORM, JWT auth, zod validation.
 - **Database**: PostgreSQL 15+ (via `infra/docker-compose.yml`).
 - **Package manager**: pnpm 9 with workspaces.
 
@@ -17,9 +17,9 @@ See `docs/ARCHITECTURE.md` for the full design, `docs/ROADMAP.md` for the 1-2 we
 
 ```
 .
-├── apps/
-│   ├── api/                 Express + Prisma backend (@checknbook/api)
-│   └── web/                 React + Vite frontend (@checknbook/web)
+├── backend/                 Express + Prisma backend (@checknbook/api)
+├── frontend/                React + Vite frontend (@checknbook/web)
+├── App/                     Expo mobile app (own independent git repo)
 ├── packages/
 │   └── types/               Shared TS types / DTOs (@checknbook/types)
 ├── infra/
@@ -40,7 +40,7 @@ See `docs/ARCHITECTURE.md` for the full design, `docs/ROADMAP.md` for the 1-2 we
 
 ## Open in VS Code
 
-Double-click **`checknbook.code-workspace`**. You'll see `root`, `apps/api`, `apps/web`, `packages/types`, `infra`, and `docs` as separate roots with shared settings, recommended extensions (ESLint, Prettier, Prisma, Docker, dotenv, GitLens), and debug configs pre-wired.
+Double-click **`checknbook.code-workspace`**. You'll see `root`, `backend`, `frontend`, `packages/types`, `infra`, `docs`, and `App` as separate roots with shared settings, recommended extensions (ESLint, Prettier, Prisma, Docker, dotenv, GitLens), and debug configs pre-wired.
 
 ## Quick start (from the repo root)
 
@@ -50,8 +50,8 @@ npm i -g pnpm
 
 # 2. Env
 cp .env.example .env
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 
 # 3. Install all workspaces
 pnpm install
@@ -91,11 +91,11 @@ Seeded logins:
 
 ## Sharing types across apps
 
-`packages/types` is consumed by both `apps/api` and `apps/web` via workspace protocol (`"@checknbook/types": "workspace:*"`). Add a type there, save, and both sides pick it up. See `apps/web/src/api/client.ts` for an example.
+`packages/types` is a workspace member consumed via `"@checknbook/types": "workspace:*"`. In practice only `frontend` currently imports from it (see `frontend/src/api/client.ts`); `backend` declares the dependency but defines its own inline validation shapes.
 
 ## What's in the starter
 
-- **Data model** (`apps/api/prisma/schema.prisma`): `User`, `Hall`, `Availability` with the right indexes and a sparse availability table.
+- **Data model** (`backend/prisma/schema.prisma`): `User`, `Hall`, `Availability` with the right indexes and a sparse availability table.
 - **API routes**: `/api/auth/*`, `/api/halls*`, `/api/admin/*` — all the endpoints listed in the architecture doc, with zod validation and JWT + role middleware.
 - **Seed**: five halls across three cities, with a couple of pre-booked dates so search actually filters.
 - **Frontend pages**: Search, Hall Details, Owner Login/Register, Owner Dashboard with a toggle-able calendar.

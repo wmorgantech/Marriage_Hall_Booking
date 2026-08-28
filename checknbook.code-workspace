@@ -1,11 +1,12 @@
 {
   "folders": [
     { "name": "root", "path": "." },
-    { "name": "apps/api", "path": "apps/api" },
-    { "name": "apps/web", "path": "apps/web" },
+    { "name": "backend", "path": "backend" },
+    { "name": "frontend", "path": "frontend" },
     { "name": "packages/types", "path": "packages/types" },
     { "name": "infra", "path": "infra" },
-    { "name": "docs", "path": "docs" }
+    { "name": "docs", "path": "docs" },
+    { "name": "App", "path": "App" }
   ],
   "settings": {
     "editor.formatOnSave": true,
@@ -15,7 +16,8 @@
     "typescript.tsdk": "node_modules/typescript/lib",
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "eslint.workingDirectories": [
-      { "pattern": "apps/*" },
+      { "pattern": "frontend" },
+      { "pattern": "backend" },
       { "pattern": "packages/*" }
     ],
     "files.exclude": {

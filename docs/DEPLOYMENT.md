@@ -10,7 +10,7 @@ End-to-end: fresh Ubuntu VPS → `https://checknbook.yourdomain.com` with a Let'
 
 | Piece | Where it runs |
 |---|---|
-| React static build | `/home/checknbook/app/apps/web/dist`, served by Nginx |
+| React static build | `/home/checknbook/app/frontend/dist`, served by Nginx |
 | Node API | systemd service `checknbook-api` on `127.0.0.1:4000` |
 | PostgreSQL | local Postgres on `127.0.0.1:5432` |
 | Public domain | `https://checknbook.yourdomain.com` (Nginx on 443) |
@@ -18,7 +18,7 @@ End-to-end: fresh Ubuntu VPS → `https://checknbook.yourdomain.com` with a Let'
 
 Nginx routing:
 - `/api/*` → proxies to `http://127.0.0.1:4000` (the Node API)
-- everything else → serves `apps/web/dist/index.html` (SPA)
+- everything else → serves `frontend/dist/index.html` (SPA)
 
 ---
 
@@ -138,8 +138,8 @@ pnpm install
 ## 6. Production env vars
 
 ```bash
-cp apps/api/.env.example apps/api/.env
-nano apps/api/.env
+cp backend/.env.example backend/.env
+nano backend/.env
 ```
 
 Set:
@@ -154,8 +154,8 @@ CORS_ORIGIN="https://checknbook.yourdomain.com"
 And for the web build:
 
 ```bash
-cp apps/web/.env.example apps/web/.env
-nano apps/web/.env
+cp frontend/.env.example frontend/.env
+nano frontend/.env
 ```
 
 Set:
@@ -175,13 +175,13 @@ VITE_API_BASE_URL=https://checknbook.yourdomain.com
 pnpm prisma:migrate -- --name init     # creates tables
 pnpm seed                               # sample data (remove later for real launch)
 pnpm --filter @checknbook/api build     # compiles TS → dist/
-pnpm --filter @checknbook/web build     # outputs apps/web/dist
+pnpm --filter @checknbook/web build     # outputs frontend/dist
 ```
 
 Sanity check the API once, in the foreground:
 
 ```bash
-cd apps/api
+cd backend
 NODE_ENV=production node dist/index.js
 # Another SSH window:
 curl http://127.0.0.1:4000/health
@@ -216,7 +216,7 @@ sudo cp ~/app/infra/nginx/checknbook.conf /etc/nginx/sites-available/checknbook
 sudo nano /etc/nginx/sites-available/checknbook
 ```
 
-Replace `${SUBDOMAIN}` with `checknbook.yourdomain.com` and `${WEB_ROOT}` with `/home/checknbook/app/apps/web/dist`. Then:
+Replace `${SUBDOMAIN}` with `checknbook.yourdomain.com` and `${WEB_ROOT}` with `/home/checknbook/app/frontend/dist`. Then:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/checknbook /etc/nginx/sites-enabled/
@@ -274,7 +274,7 @@ sudo systemctl restart checknbook-api
 # Nginx just serves the new dist/ — no restart needed.
 ```
 
-> For production, prefer `prisma migrate deploy` (non-interactive) over `prisma migrate dev`. Update the script in `apps/api/package.json` when you're ready.
+> For production, prefer `prisma migrate deploy` (non-interactive) over `prisma migrate dev`. Update the script in `backend/package.json` when you're ready.
 
 ### Logs
 
@@ -303,7 +303,7 @@ Copy backups off the server periodically (rsync / rclone to B2 or S3).
 
 - **Subdomain won't resolve** → wrong A record, or DNS hasn't propagated. `dig checknbook.yourdomain.com` tells the truth.
 - **502 Bad Gateway** → API process not running. `sudo systemctl status checknbook-api`, check `journalctl -u checknbook-api -n 100`.
-- **CORS errors in the browser** → `CORS_ORIGIN` in `apps/api/.env` must exactly match the public HTTPS origin (including `https://`, no trailing slash).
+- **CORS errors in the browser** → `CORS_ORIGIN` in `backend/.env` must exactly match the public HTTPS origin (including `https://`, no trailing slash).
 - **`DATABASE_URL not found`** → systemd didn't pick up the env file. Check `EnvironmentFile=` path in `/etc/systemd/system/checknbook-api.service` and that the file is readable by the `checknbook` user.
 - **Password with special chars in DATABASE_URL** → URL-encode it. `@` → `%40`, `:` → `%3A`, `/` → `%2F`.
 - **Certbot fails with "DNS problem"** → A record isn't pointing at this VPS yet. Wait for DNS, try again.
@@ -315,4 +315,4 @@ Copy backups off the server periodically (rsync / rclone to B2 or S3).
 
 Once the HTTPS site loads, the URL `https://checknbook.yourdomain.com` is what you share. That's it — no further steps.
 
-For a quick "coming soon" splash while you polish, add a `maintenance.html` to `apps/web/dist/` and in Nginx temporarily `return 503; error_page 503 /maintenance.html;`. Easy to roll in and out.
+For a quick "coming soon" splash while you polish, add a `maintenance.html` to `frontend/dist/` and in Nginx temporarily `return 503; error_page 503 /maintenance.html;`. Easy to roll in and out.

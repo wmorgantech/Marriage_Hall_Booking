@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -8,8 +8,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@checknbook/types": ["../../packages/types/src/index.ts"]
+      "@checknbook/types": ["../packages/types/src/index.ts"]
     }
   },
-  "include": ["src", "../../packages/types/src/**/*.ts"]
+  "include": ["src", "../packages/types/src/**/*.ts"]
 }

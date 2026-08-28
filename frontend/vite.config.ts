@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@checknbook/types': path.resolve(__dirname, '../../packages/types/src/index.ts'),
+      '@checknbook/types': path.resolve(__dirname, '../packages/types/src/index.ts'),
     },
   },
   server: {

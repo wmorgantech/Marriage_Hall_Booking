@@ -8,7 +8,7 @@ Local/dev infrastructure as code.
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-Default credentials (match `apps/api/.env.example`):
+Default credentials (match `backend/.env.example`):
 - host: `localhost`
 - port: `5432`
 - user: `postgres`
@@ -27,6 +27,6 @@ docker compose -f infra/docker-compose.yml down -v
 
 ## Future
 
-- `infra/docker/api.Dockerfile` — prod image for the API.
-- `infra/docker/web.Dockerfile` — static build for the web app.
+- `infra/docker/backend.Dockerfile` — prod image for the API.
+- `infra/docker/frontend.Dockerfile` — static build for the web app.
 - `infra/terraform/` or `infra/fly/` — deploy configs.

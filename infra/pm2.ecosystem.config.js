@@ -4,12 +4,12 @@
 //   pm2 start infra/pm2.ecosystem.config.js
 //
 // API   -> http://<server-ip>:4100  (CORS_ORIGIN must match the web origin below)
-// Web   -> http://<server-ip>:4173  (static build served from apps/web/dist)
+// Web   -> http://<server-ip>:4173  (static build served from frontend/dist)
 module.exports = {
   apps: [
     {
       name: 'checknbook-api',
-      cwd: __dirname + '/../apps/api',
+      cwd: __dirname + '/../backend',
       script: 'dist/index.js',
       env: {
         NODE_ENV: 'production',
@@ -20,7 +20,7 @@ module.exports = {
     },
     {
       name: 'checknbook-web',
-      cwd: __dirname + '/../apps/web',
+      cwd: __dirname + '/../frontend',
       script: process.env.APPDATA + '\\npm\\node_modules\\serve\\build\\main.js',
       args: '-s dist -l tcp://0.0.0.0:5000',
       env: {

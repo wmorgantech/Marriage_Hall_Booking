@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "api: dev (tsx watch)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "api: attach",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": []
+}

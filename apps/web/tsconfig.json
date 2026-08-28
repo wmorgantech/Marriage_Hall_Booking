@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@checknbook/types": ["../../packages/types/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/types/src/**/*.ts"]
+}

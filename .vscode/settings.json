@@ -1,0 +1,14 @@
+{
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "files.eol": "\n",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "eslint.workingDirectories": [
+    { "pattern": "backend" },
+    { "pattern": "frontend" }
+  ],
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
+}

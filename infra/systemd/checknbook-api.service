@@ -1,0 +1,38 @@
+# /etc/systemd/system/checknbook-api.service
+# Runs the Node API under a non-root user, auto-restarts on crash and boot.
+#
+# Install:
+#   sudo cp infra/systemd/checknbook-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now checknbook-api
+#   sudo systemctl status checknbook-api
+#
+# Logs:
+#   sudo journalctl -u checknbook-api -f
+
+[Unit]
+Description=CheckNBook API (Node + Express)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=checknbook
+WorkingDirectory=/home/checknbook/app/apps/api
+# Loads DATABASE_URL, JWT_SECRET, PORT, CORS_ORIGIN from this file
+EnvironmentFile=/home/checknbook/app/apps/api/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

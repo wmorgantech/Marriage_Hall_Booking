@@ -1,0 +1,104 @@
+// Prisma schema for CheckNBook
+// docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  OWNER
+  ADMIN
+  SUPERADMIN
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BOOKED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String
+  role         Role     @default(OWNER)
+  createdAt    DateTime @default(now())
+
+  halls        Hall[]
+}
+
+model Hall {
+  id            String   @id @default(cuid())
+  name          String
+  city          String
+  area          String   @default("")
+  address       String
+  price         Int       // per-day price in ₹ (store as integer)
+  capacity      Int      @default(0)
+  hasRooms      Boolean  @default(false)
+  hasAC         Boolean  @default(false)
+  imageUrl      String?
+  contactNumber String    // E.164 e.g. +919876543210
+  description   String?
+  isApproved    Boolean   @default(false)
+
+  // --- Rich listing fields (added 2026-04) ---
+  latitude            Float?
+  longitude           Float?
+  diningCapacity      Int       @default(0)
+  amenities           String[]  @default([])
+  imageUrls           String[]  @default([])
+  perEventPrice       Int?
+  advancePercent      Int       @default(50)
+  cancellationPolicy  String?
+  houseRules          String?
+  // -------------------------------------------
+
+  ownerId       String
+  owner         User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  availability  Availability[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([city, area, isApproved])
+}
+
+model Area {
+  id        String   @id @default(cuid())
+  city      String
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([city, name])
+  @@index([city])
+}
+
+model Settings {
+  id                  String   @id @default("singleton")
+  customerCarePhone   String   @default("")
+  customerCareEmail   String   @default("")
+  updatedAt           DateTime @updatedAt
+}
+
+model Availability {
+  id        String              @id @default(cuid())
+  hallId    String
+  date      DateTime            @db.Date
+  status    AvailabilityStatus  @default(AVAILABLE)
+  createdAt DateTime            @default(now())
+
+  hall      Hall @relation(fields: [hallId], references: [id], onDelete: Cascade)
+
+  @@unique([hallId, date])
+  @@index([date])
+  @@index([createdAt])
+}

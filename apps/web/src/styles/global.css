@@ -1,0 +1,327 @@
+/* CheckNBook — Vivaha-styled global resets.
+   Tailwind (CDN) provides the utility classes; this file supplies
+   the handful of rules we still need: font defaults, material-symbols,
+   and react-day-picker overrides. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+@keyframes cnb-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tamil text — use a script-aware font for proper glyph metrics. */
+.cnb-ta, [lang="ta"] {
+  font-family: 'Noto Sans Tamil', 'Manrope', system-ui, sans-serif;
+  font-feature-settings: 'tnum' 0;
+}
+
+@keyframes cnb-badge-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55), 0 6px 14px rgba(0, 0, 0, 0.18);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0), 0 6px 14px rgba(0, 0, 0, 0.18);
+    transform: scale(1.04);
+  }
+}
+
+.cnb-badge-blink {
+  animation: cnb-badge-blink 1.6s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+@keyframes cnb-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
+}
+
+.cnb-dot-pulse {
+  animation: cnb-dot-pulse 1s ease-in-out infinite;
+}
+
+/* Recent-bookings notification banner — soft glow blink */
+@keyframes cnb-banner-blink-green {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.10), 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.10), 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+@keyframes cnb-banner-blink-red {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 0 0 rgba(239, 68, 68, 0.65); }
+  50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 0 10px rgba(239, 68, 68, 0); }
+}
+.cnb-banner-blink-green { animation: cnb-banner-blink-green 1.8s ease-in-out infinite; }
+.cnb-banner-blink-red   { animation: cnb-banner-blink-red 1.2s ease-in-out infinite; }
+
+@keyframes cnb-banner-progress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+@keyframes cnb-toast-in {
+  from { opacity: 0; transform: translate3d(20px, -8px, 0) scale(0.96); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+.cnb-toast-in { animation: cnb-toast-in 180ms ease-out; }
+
+@keyframes cnb-toast-progress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cnb-badge-blink, .cnb-dot-pulse,
+  .cnb-banner-blink-green, .cnb-banner-blink-red { animation: none; }
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Subtle kolam dot pattern background for footer / decorative blocks */
+.kolam-bg {
+  background-image: radial-gradient(#d4af37 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+  opacity: 0.06;
+}
+
+/* Hide horizontal scrollbar on carousels */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* -------- react-day-picker — Vivaha theme -------- */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #610000;
+  --rdp-background-color: #f5ece7;
+  --rdp-accent-color-dark: #8b0000;
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+}
+
+.rdp-caption_label {
+  font-family: 'Noto Serif', serif;
+  color: #610000;
+  font-weight: 700;
+}
+
+.rdp-head_cell {
+  color: #5a403c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rdp-day {
+  border-radius: 0.375rem;
+  font-weight: 500;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: #610000;
+  color: #fff;
+}
+
+.rdp-day_booked {
+  background-color: #ffe4e4 !important;
+  color: #8b0000 !important;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* Auspicious (muhurtham) wedding dates — gold accent + star marker */
+.rdp-day_muhurtham {
+  position: relative;
+  background-color: #fff8e1 !important;
+  color: #7a5a00 !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 0 0 1.5px rgba(212, 175, 55, 0.7);
+}
+.rdp-day_muhurtham::after {
+  content: '★';
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: #d4af37;
+  pointer-events: none;
+}
+/* When a muhurtham date is also booked, the booked styling wins, but keep the star */
+.rdp-day_booked.rdp-day_muhurtham {
+  background-color: #ffe4e4 !important;
+  color: #8b0000 !important;
+  box-shadow: none;
+}
+/* When selected, keep the star visible against the dark fill */
+.rdp-day_selected.rdp-day_muhurtham::after {
+  color: #ffd86b;
+}
+.legend-chip--muhurtham {
+  background: #fff8e1;
+  border: 1px solid rgba(212, 175, 55, 0.7);
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: #f5ece7;
+}
+
+/* iOS safe-area support for mobile bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* --------- Legacy owner/admin dashboard helpers (kept minimal) --------- */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+.panel {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  border-top: 2px solid rgba(212, 175, 55, 0.45);
+}
+.panel h1, .panel h2 { font-family: 'Noto Serif', serif; color: #610000; }
+.panel .section__title { font-family: 'Noto Serif', serif; color: #610000; font-size: 1.5rem; }
+.panel .section__sub { color: #5a403c; font-size: 0.875rem; }
+.stack > * + * { margin-top: 1rem; }
+.row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5a403c; margin-bottom: 0.5rem; }
+.input, .textarea, select {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid rgba(212,175,55,0.4);
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+}
+.input:focus, .textarea:focus, select:focus { border-bottom-color: #610000; }
+.textarea { min-height: 80px; resize: vertical; }
+.alert { padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; }
+.alert--error { background: #ffdad6; color: #93000a; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn--primary { background: #610000; color: #fff; box-shadow: 0 6px 18px rgba(97,0,0,0.15); }
+.btn--primary:hover:not(:disabled) { background: #8b0000; }
+.btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn--sm { padding: 0.5rem 0.875rem; font-size: 0.7rem; }
+.btn--lg { padding: 1rem 1.5rem; font-size: 0.8rem; }
+.btn--block { width: 100%; justify-content: center; }
+.btn--ghost { background: transparent; color: #610000; border: 1px solid rgba(212,175,55,0.6); }
+.text-muted { color: #5a403c; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(212,175,55,0.15);
+  color: #610000;
+}
+.badge--pending { background: #fef3c7; color: #92400e; }
+.spin {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: #fbf2ed;
+  border-radius: 1rem;
+  color: #5a403c;
+}
+.empty__title { font-family: 'Noto Serif', serif; font-size: 1.25rem; color: #610000; margin-bottom: 0.5rem; }
+.dashboard { display: grid; gap: 1.5rem; }
+.dashboard__header { display: flex; justify-content: space-between; align-items: end; gap: 1rem; flex-wrap: wrap; }
+.dashboard__header h1 { font-family: 'Noto Serif', serif; color: #610000; font-size: 1.75rem; margin: 0 0 0.25rem; }
+.dashboard__header p { color: #5a403c; margin: 0; }
+.halls-strip { list-style: none; padding: 0; margin: 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.halls-strip button {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212,175,55,0.4);
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #5a403c;
+}
+.halls-strip button.is-active { background: #610000; color: #fff; border-color: #610000; }
+.halls-strip__pending { color: #a16207; font-size: 0.75rem; margin-left: 0.25rem; }
+.calendar-toolbar { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; flex-wrap: wrap; }
+.calendar-toolbar label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #5a403c; }
+.calendar-toolbar select { width: auto; padding: 0.375rem 0.5rem; }
+.legend { display: flex; gap: 1rem; margin: 0.75rem 0; font-size: 0.75rem; color: #5a403c; }
+.legend-chip { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 0.25rem; margin-right: 0.25rem; vertical-align: middle; }
+.legend-chip--available { background: #dcfce7; border: 1px solid #86efac; }
+.legend-chip--booked { background: #ffe4e4; border: 1px solid #fca5a5; }
+.legend-chip--selected { background: #ffb4a8; border: 1px solid #610000; }

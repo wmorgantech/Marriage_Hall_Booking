@@ -15,11 +15,11 @@ importers:
         specifier: ^5.5.3
         version: 5.9.3
 
-  apps/api:
+  backend:
     dependencies:
       '@checknbook/types':
         specifier: workspace:*
-        version: link:../../packages/types
+        version: link:../packages/types
       '@prisma/client':
         specifier: ^5.18.0
         version: 5.22.0(prisma@5.22.0)
@@ -82,11 +82,11 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.39)
 
-  apps/web:
+  frontend:
     dependencies:
       '@checknbook/types':
         specifier: workspace:*
-        version: link:../../packages/types
+        version: link:../packages/types
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0

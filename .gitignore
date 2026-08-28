@@ -6,6 +6,10 @@ build
 *.log
 .DS_Store
 .vscode/*.local
+*.tsbuildinfo
+*.stackdump
+apps/api/prisma/seed.js
+apps/api/prisma/seed.js.map
 
 # pnpm
 .pnpm-store

@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
+    "seed:admins": "tsx scripts/seed-admins.ts",
     "lint": "eslint . --ext .ts",
     "test": "vitest run"
   },

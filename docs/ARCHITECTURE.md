@@ -28,57 +28,73 @@
 
 ## 3. Repo Layout
 
+> pnpm workspace monorepo (`pnpm-workspace.yaml`: `apps/*`, `packages/*`). This reflects the actual current layout — earlier drafts of this doc described a `backend/`+`frontend/` split, which is not what was built.
+
 ```
 MHall Availability checker/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── seed.ts
-│   ├── src/
-│   │   ├── index.ts             # Express bootstrap
-│   │   ├── lib/
-│   │   │   ├── prisma.ts        # PrismaClient singleton
-│   │   │   └── jwt.ts
-│   │   ├── middleware/
-│   │   │   ├── auth.ts          # verifies JWT, attaches req.user
-│   │   │   └── requireRole.ts
-│   │   ├── routes/
-│   │   │   ├── auth.routes.ts
-│   │   │   ├── hall.routes.ts
-│   │   │   ├── availability.routes.ts
-│   │   │   └── admin.routes.ts
-│   │   ├── controllers/
-│   │   ├── services/
-│   │   └── validators/          # zod schemas
-│   ├── .env.example
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── App.tsx
-│   │   ├── api/client.ts
-│   │   ├── pages/
-│   │   │   ├── Search.tsx           # city + date picker, results list
-│   │   │   ├── HallDetails.tsx      # hall info + call/WhatsApp buttons
-│   │   │   ├── OwnerLogin.tsx
-│   │   │   ├── OwnerRegister.tsx
-│   │   │   └── OwnerDashboard.tsx   # manage halls + calendar
-│   │   ├── components/
-│   │   │   ├── HallCard.tsx
-│   │   │   ├── AvailabilityCalendar.tsx
-│   │   │   └── WhatsAppButton.tsx
-│   │   └── styles/
-│   │       └── global.css
-│   ├── index.html
-│   ├── vite.config.ts
-│   ├── package.json
-│   └── tsconfig.json
+├── apps/
+│   ├── api/
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   ├── seed.ts
+│   │   │   └── migrations/
+│   │   ├── scripts/
+│   │   │   └── seed-admins.ts
+│   │   ├── src/
+│   │   │   ├── index.ts             # Express bootstrap
+│   │   │   ├── lib/
+│   │   │   │   ├── prisma.ts        # PrismaClient singleton
+│   │   │   │   └── jwt.ts
+│   │   │   ├── middleware/
+│   │   │   │   └── auth.ts          # verifies JWT, attaches req.user; also exports requireRole()
+│   │   │   └── routes/              # handlers, zod validation, and Prisma queries live directly here
+│   │   │       ├── auth.routes.ts
+│   │   │       ├── hall.routes.ts
+│   │   │       ├── availability.routes.ts
+│   │   │       ├── admin.routes.ts
+│   │   │       ├── areas.routes.ts
+│   │   │       └── settings.routes.ts
+│   │   ├── .env.example
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── web/
+│       ├── src/
+│       │   ├── main.tsx
+│       │   ├── App.tsx
+│       │   ├── api/client.ts
+│       │   ├── pages/
+│       │   │   ├── Search.tsx           # city + date picker, results list
+│       │   │   ├── HallDetails.tsx      # hall info + call/WhatsApp buttons
+│       │   │   ├── OwnerLogin.tsx
+│       │   │   ├── OwnerRegister.tsx
+│       │   │   ├── OwnerDashboard.tsx   # manage halls + calendar
+│       │   │   ├── AdminLogin.tsx
+│       │   │   ├── AdminDashboard.tsx
+│       │   │   └── AdminEditHall.tsx
+│       │   ├── components/
+│       │   ├── i18n/
+│       │   ├── data/
+│       │   └── styles/
+│       │       └── global.css
+│       ├── index.html
+│       ├── vite.config.ts
+│       ├── package.json
+│       └── tsconfig.json
+├── packages/
+│   └── types/               # shared DTOs (@checknbook/types), types-only, no build step
+│       └── src/index.ts
+├── infra/                   # docker-compose (Postgres), pm2 config, nginx template, systemd unit
 ├── docs/
 │   ├── ARCHITECTURE.md  (this file)
+│   ├── DEPLOYMENT.md
 │   └── ROADMAP.md
+├── package.json              # workspace root scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
 └── README.md
 ```
+
+Note: `apps/api` has no separate `controllers/`/`services/`/`validators/` layer — route handlers, `zod` schemas, and Prisma queries are written directly in each `routes/*.routes.ts` file. `@checknbook/types` is currently consumed by `apps/web` only; `apps/api` defines its own inline zod shapes rather than importing the shared package.
 
 ## 4. Data Model
 

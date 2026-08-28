@@ -9,7 +9,7 @@ import type {
   CreateHallRequest,
   AvailabilityStatus,
   Role,
-} from '@checknbook/types';
+} from './types';
 
 export type SessionUser = AuthResponse['user'];
 export type { Hall, Availability, User as AuthUser, HallFilters, Role };

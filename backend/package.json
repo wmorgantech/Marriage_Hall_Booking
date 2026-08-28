@@ -17,7 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@checknbook/types": "workspace:*",
     "@prisma/client": "^5.18.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -40,5 +39,13 @@
     "tsx": "^4.16.2",
     "typescript": "^5.5.3",
     "vitest": "^2.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
   }
 }

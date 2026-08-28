@@ -127,9 +127,10 @@ PGPASSWORD='REPLACE_WITH_A_STRONG_PASSWORD' psql -h 127.0.0.1 -U checknbook -d c
 ```bash
 cd ~
 git clone <your-git-remote-url> app
-cd app
-pnpm install
+cd app/backend && pnpm install && cd ../frontend && pnpm install && cd ..
 ```
+
+> `backend` and `frontend` are independent apps, each with its own `package.json`/lockfile — install each separately.
 
 > If you haven't pushed to a git remote yet, do that first (GitHub / GitLab / Hostinger Git). Alternatively, `scp -r` the folder from your laptop, but git is cleaner for future updates.
 
@@ -172,10 +173,13 @@ VITE_API_BASE_URL=https://checknbook.yourdomain.com
 
 ```bash
 # From ~/app
+cd backend
 pnpm prisma:migrate -- --name init     # creates tables
 pnpm seed                               # sample data (remove later for real launch)
-pnpm --filter @checknbook/api build     # compiles TS → dist/
-pnpm --filter @checknbook/web build     # outputs frontend/dist
+pnpm build                              # compiles TS → dist/
+cd ../frontend
+pnpm build                              # outputs frontend/dist
+cd ..
 ```
 
 Sanity check the API once, in the foreground:
@@ -266,10 +270,8 @@ Visit **`https://checknbook.yourdomain.com`** — padlock should be green.
 ```bash
 cd ~/app
 git pull
-pnpm install
-pnpm --filter @checknbook/api build
-pnpm --filter @checknbook/web build
-pnpm prisma:migrate                     # if schema changed (uses `prisma migrate deploy` in prod ideally)
+cd backend && pnpm install && pnpm build && pnpm prisma:migrate && cd ..   # if schema changed (uses `prisma migrate deploy` in prod ideally)
+cd frontend && pnpm install && pnpm build && cd ..
 sudo systemctl restart checknbook-api
 # Nginx just serves the new dist/ — no restart needed.
 ```

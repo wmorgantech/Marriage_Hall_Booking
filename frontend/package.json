@@ -10,7 +10,6 @@
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
-    "@checknbook/types": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-day-picker": "^9.0.8",

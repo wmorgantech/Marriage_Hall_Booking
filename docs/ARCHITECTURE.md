@@ -28,7 +28,7 @@
 
 ## 3. Repo Layout
 
-> pnpm workspace monorepo (`pnpm-workspace.yaml`: `frontend`, `backend`, `packages/*`). `backend`/`frontend` are top-level siblings of the repo root — not nested under an `apps/` folder. The companion Expo mobile app lives in the sibling `App/` folder as its own independent git repository, outside this workspace.
+> `backend` and `frontend` are independent applications, each with its own `package.json` and pnpm lockfile — there is no pnpm workspace at the root (there used to be; it was dissolved once the only cross-app dependency, shared DTOs, turned out to have exactly one consumer — see the note below). The companion Expo mobile app lives in the sibling `App/` folder as its own independent git repository.
 
 ```
 Marriage Hall Project/
@@ -60,7 +60,10 @@ Marriage Hall Project/
 │   ├── src/
 │   │   ├── main.tsx
 │   │   ├── App.tsx
-│   │   ├── api/client.ts
+│   │   ├── api/
+│   │   │   ├── client.ts
+│   │   │   └── types.ts         # shared DTOs — moved here from the old packages/types
+│   │   │                          workspace package, since frontend is the only consumer
 │   │   ├── pages/
 │   │   │   ├── Search.tsx           # city + date picker, results list
 │   │   │   ├── HallDetails.tsx      # hall info + call/WhatsApp buttons
@@ -79,22 +82,16 @@ Marriage Hall Project/
 │   ├── vite.config.ts
 │   ├── package.json
 │   └── tsconfig.json
-├── packages/
-│   └── types/               # shared DTOs (@checknbook/types), types-only, no build step
-│       └── src/index.ts
 ├── infra/                   # docker-compose (Postgres), pm2 config, nginx template, systemd unit
 ├── docs/
 │   ├── ARCHITECTURE.md  (this file)
 │   ├── DEPLOYMENT.md
 │   └── ROADMAP.md
-├── package.json              # workspace root scripts
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
 ├── README.md
-└── App/                      # Expo mobile app — separate git repo, not a workspace member
+└── App/                      # Expo mobile app — separate git repo, independent app
 ```
 
-Note: `backend` has no separate `controllers/`/`services/`/`validators/` layer — route handlers, `zod` schemas, and Prisma queries are written directly in each `routes/*.routes.ts` file. `@checknbook/types` is currently consumed by `frontend` only; `backend` declares the dependency but defines its own inline zod shapes rather than importing the shared package. Internal package identifiers (`@checknbook/api`, `@checknbook/web`) were kept unchanged even though the folders are now named `backend`/`frontend`.
+Note: `backend` has no separate `controllers/`/`services/`/`validators/` layer — route handlers, `zod` schemas, and Prisma queries are written directly in each `routes/*.routes.ts` file. Shared DTOs used to live in a workspace package (`packages/types`, `@checknbook/types`); since `frontend` was the only consumer and `backend` always defined its own inline zod shapes, that package was folded into `frontend/src/api/types.ts` as a plain relative import when the pnpm workspace was dissolved. `backend` and `frontend` each have their own `package.json`, `tsconfig.json`, and pnpm lockfile — no shared root config.
 
 ## 4. Data Model
 

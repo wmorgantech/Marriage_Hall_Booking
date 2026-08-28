@@ -1,6 +1,6 @@
 // pm2 process definitions for hosting CheckNBook on this machine's IP.
-// Usage (from repo root, after `pnpm --filter @checknbook/api build` and
-// `pnpm --filter @checknbook/web build`):
+// Usage (from repo root, after `cd backend && pnpm build` and
+// `cd frontend && pnpm build`):
 //   pm2 start infra/pm2.ecosystem.config.js
 //
 // API   -> http://<server-ip>:4100  (CORS_ORIGIN must match the web origin below)

@@ -1,7 +1,11 @@
 /* CheckNBook — Vivaha-styled global resets.
-   Tailwind (CDN) provides the utility classes; this file supplies
-   the handful of rules we still need: font defaults, material-symbols,
-   and react-day-picker overrides. */
+   Tailwind (compiled at build time via postcss.config.js / tailwind.config.js)
+   provides the utility classes; this file supplies the handful of rules we
+   still need: font defaults, material-symbols, and react-day-picker overrides. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 *,
 *::before,

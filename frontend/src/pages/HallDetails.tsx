@@ -105,41 +105,15 @@ export default function HallDetails() {
     }?`
   )}`;
 
-  const reviews = [
-    {
-      name: 'Raghavan Iyer',
-      role: "Groom's Father",
-      stars: 5,
-      body:
-        'The hospitality was unmatched. Every traditional detail we requested for the Muhurtham was executed flawlessly. Truly the most elegant venue in Tamil Nadu.',
-      photo:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuC4jF5b0Fgqs9PvauGeXH5RMzN2L5mjaJuWqoiEdFmhTHvwLrICvJoQ8mP0QQ97CME76uk539cj4Qo1Opkhh0kiRW6ySUnIppMZNXIEmJtzxwCpJpHbpSrr7Hw4aLm2-PkQyjtE7i2iK7a3oyjRSrKk4HJ4dDl0iSRaINTBBfFgnPPA0cojDg1nXxjmN9Q7P__AdHaLHPotPHX_QukXPTyaAgX-C2x26OpXJlOwKdebJ8oY0rHkLE9XZlKQCoA8MyQAo_YewK4JaA',
-    },
-    {
-      name: 'Priya Sundaram',
-      role: 'Bride',
-      stars: 5,
-      body:
-        'The air conditioning and parking facilities were a huge relief for our 1000+ guests. The dining hall is massive and very well maintained.',
-      photo:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuDs0-La2iZQydMH55Tpsy9fXnDu94FLnBcVcwS9nIlHIlzEOObjmTL3wnxWya_EMxaHdKJ7JRdLnK3j8pgtBfR_qLSNWsmrr3vkvpZEMiYlb-kfG673k4Fg9MZitJcHbFItu4IwtELx3SDMJJ-n0NgkgjCMkqDEDPaeDYk47lJqRpqX_CsG_328ksgNZWjnlun8uL12HaAdEkdiitxFKnm6Q0Pcqbl-gmFt4XxUzUbHtF3XfB7vLjxtL4N9C8vxuvPwSOOyYkpk8Q',
-    },
-    {
-      name: 'Meenakshi G.',
-      role: 'Wedding Planner',
-      stars: 4,
-      body:
-        'Absolutely divine atmosphere. The interior carvings provide a natural backdrop that did not need much extra decoration.',
-      photo:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuC0SF5VPjtYCnr8HODbH9auUKKEsmLo1xECjp_ilr9ZM1qbvfA0Yhz9iLmJjB845itez2YIHv2_hhlpYHWM7F-UP-s6eIYUfGaZk7A5obS4gUheBWnJBVSBFiB-7fNSRU6fw3LXvpCpdBbgx4RNaRusXfZu4JP-wKYdQhjOUlmGSh_uLxcmi-AHRJDmntV9pltQz276oBJ7qOQGsBJWNhwDRYKfRND4EuThtZULlJlEvb_8-PruSDo_5OjswG8T1EHbUkociFEo7A',
-    },
-  ];
-
+  // Real per-hall fields only — no invented FAQ copy. Section below renders
+  // nothing if a hall has set neither field.
   const faqs = [
-    { q: 'What is your cancellation policy?', a: 'Full refund up to 60 days prior to the event. 50% refund up to 30 days prior. No refund within 30 days.' },
-    { q: 'Are external catering teams allowed?', a: 'Yes, with prior approval. A nominal usage charge applies for kitchen facilities.' },
-    { q: 'Is there a separate hall for Vidhi/Rituals?', a: `Yes, ${hall.name} includes a dedicated Yagya Mandap zone with specialized ventilation designed for traditional rituals.` },
-    { q: 'Do you provide in-house decoration?', a: 'Our in-house décor team offers curated traditional and modern packages. Custom themes are also welcome.' },
+    ...(hall.cancellationPolicy
+      ? [{ q: 'What is your cancellation policy?', a: hall.cancellationPolicy }]
+      : []),
+    ...(hall.houseRules
+      ? [{ q: 'What are the house rules for this venue?', a: hall.houseRules }]
+      : []),
   ];
 
   return (
@@ -190,15 +164,6 @@ export default function HallDetails() {
 
         <div className="lg:col-span-4 flex flex-col justify-between gap-6">
           <div>
-            <div className="flex items-center gap-1 mb-2" aria-label="4.5 out of 5 stars">
-              {[1, 2, 3, 4].map((n) => (
-                <span key={n} className="material-symbols-outlined filled text-gold text-xl">star</span>
-              ))}
-              <span className="material-symbols-outlined text-gold text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                star_half
-              </span>
-              <span className="text-on-surface-variant text-sm font-medium ml-2">(124 Reviews)</span>
-            </div>
             <h1 className="font-serif text-3xl md:text-h1 md:leading-[1.15] text-primary mb-4 font-bold">
               {hall.name}
             </h1>
@@ -463,54 +428,6 @@ export default function HallDetails() {
         </div>
       </section>
 
-      {/* Reviews */}
-      <section className="py-12 border-t border-yellow-600/10">
-        <div className="flex justify-between items-end mb-10 gap-4 flex-wrap">
-          <div>
-            <h2 className="font-serif text-h2 text-primary">Voices of Joy</h2>
-            <p className="text-on-surface-variant">Hear from families who celebrated with us</p>
-          </div>
-          <button
-            type="button"
-            className="bg-gold/10 text-primary border border-gold px-6 py-3 rounded-full font-bold text-sm hover:bg-gold/20 transition-all"
-          >
-            Write a Review
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reviews.map((r) => (
-            <div
-              key={r.name}
-              className="bg-white p-card-padding rounded-2xl shadow-soft border-t-2 border-gold flex flex-col"
-            >
-              <div className="flex gap-1 mb-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`material-symbols-outlined text-sm ${
-                      i < r.stars ? 'text-gold filled' : 'text-on-surface-variant'
-                    }`}
-                    style={{ fontVariationSettings: i < r.stars ? "'FILL' 1" : "'FILL' 0" }}
-                  >
-                    star
-                  </span>
-                ))}
-              </div>
-              <p className="text-on-surface-variant italic mb-6 leading-relaxed">"{r.body}"</p>
-              <div className="mt-auto flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-container flex-shrink-0">
-                  <img className="w-full h-full object-cover" src={r.photo} alt={r.name} />
-                </div>
-                <div>
-                  <p className="font-bold text-primary">{r.name}</p>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">{r.role}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Similar */}
       {similar.length > 0 && (
         <section className="py-12">
@@ -554,42 +471,44 @@ export default function HallDetails() {
         </section>
       )}
 
-      {/* FAQ */}
-      <section className="py-12 border-t border-yellow-600/10" id="faq">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="font-serif text-h2 text-primary mb-10 text-center">Planning Essentials</h2>
-          <div className="space-y-4">
-            {faqs.map((f, i) => {
-              const isOpen = openFaq === i;
-              return (
-                <div
-                  key={f.q}
-                  className="bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setOpenFaq(isOpen ? null : i)}
-                    className="w-full flex justify-between items-center px-6 py-4 cursor-pointer hover:bg-slate-50"
-                    aria-expanded={isOpen}
+      {/* FAQ — only rendered when the hall has real cancellation/house-rules content */}
+      {faqs.length > 0 && (
+        <section className="py-12 border-t border-yellow-600/10" id="faq">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="font-serif text-h2 text-primary mb-10 text-center">Planning Essentials</h2>
+            <div className="space-y-4">
+              {faqs.map((f, i) => {
+                const isOpen = openFaq === i;
+                return (
+                  <div
+                    key={f.q}
+                    className="bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm"
                   >
-                    <span className="font-bold text-primary text-left">{f.q}</span>
-                    <span
-                      className={`material-symbols-outlined text-primary transition-transform ${
-                        isOpen ? 'rotate-180' : ''
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(isOpen ? null : i)}
+                      className="w-full flex justify-between items-center px-6 py-4 cursor-pointer hover:bg-slate-50"
+                      aria-expanded={isOpen}
                     >
-                      expand_more
-                    </span>
-                  </button>
-                  {isOpen && (
-                    <div className="px-6 pb-6 text-on-surface-variant text-sm leading-relaxed">{f.a}</div>
-                  )}
-                </div>
-              );
-            })}
+                      <span className="font-bold text-primary text-left">{f.q}</span>
+                      <span
+                        className={`material-symbols-outlined text-primary transition-transform ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      >
+                        expand_more
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-6 pb-6 text-on-surface-variant text-sm leading-relaxed">{f.a}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <OtpAuthModal
         open={otpOpen}

@@ -29,6 +29,15 @@ export interface Hall {
   isApproved: boolean;
   ownerId: string;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  diningCapacity?: number;
+  amenities?: string[];
+  imageUrls?: string[];
+  perEventPrice?: number | null;
+  advancePercent?: number;
+  cancellationPolicy?: string | null;
+  houseRules?: string | null;
 }
 
 export interface Availability {

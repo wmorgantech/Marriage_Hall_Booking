@@ -19,6 +19,7 @@ import availabilityRoutes from './routes/availability.routes';
 import adminRoutes from './routes/admin.routes';
 import settingsRoutes from './routes/settings.routes';
 import areasRoutes, { adminAreas } from './routes/areas.routes';
+import bookingRoutes from './routes/booking.routes';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -78,6 +79,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api', settingsRoutes); // /api/settings (public GET) + /api/admin/settings (admin PATCH)
 app.use('/api', areasRoutes);    // /api/areas (public GET)
 app.use('/api/admin/areas', adminAreas);
+app.use('/api/bookings', bookingRoutes);
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

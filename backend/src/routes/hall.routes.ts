@@ -229,4 +229,24 @@ router.patch('/:id', auth, requireRole('OWNER', 'ADMIN', 'SUPERADMIN'), async (r
   } catch (e) { next(e); }
 });
 
+// ---------- Owner / admin: bookings for a hall ----------
+// Availability alone only shows a date is blocked; this surfaces who
+// actually booked it (name/phone/event details) to the hall's owner.
+router.get('/:id/bookings', auth, async (req, res, next) => {
+  try {
+    const hall = await prisma.hall.findUnique({ where: { id: req.params.id } });
+    if (!hall) return res.status(404).json({ error: 'Not found' });
+    const role = req.user!.role;
+    const isOwner = hall.ownerId === req.user!.sub;
+    const isStaff = role === 'ADMIN' || role === 'SUPERADMIN';
+    if (!isOwner && !isStaff) return res.status(403).json({ error: 'Not your hall' });
+
+    const bookings = await prisma.booking.findMany({
+      where: { hallId: hall.id },
+      orderBy: { date: 'asc' },
+    });
+    res.json(bookings);
+  } catch (e) { next(e); }
+});
+
 export default router;

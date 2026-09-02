@@ -22,6 +22,28 @@ enum AvailabilityStatus {
   BOOKED
 }
 
+enum BookingEventType {
+  wedding
+  engagement
+  reception
+  birthday
+  corporate
+  other
+}
+
+enum BookingPaymentMethod {
+  upi
+  card
+  netbanking
+  cash
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -32,6 +54,7 @@ model User {
   createdAt    DateTime @default(now())
 
   halls        Hall[]
+  bookings     Booking[]
 }
 
 model Hall {
@@ -65,6 +88,7 @@ model Hall {
   owner         User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   availability  Availability[]
+  bookings      Booking[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -100,5 +124,29 @@ model Availability {
 
   @@unique([hallId, date])
   @@index([date])
+  @@index([createdAt])
+}
+
+model Booking {
+  id              String                @id @default(cuid())
+  hallId          String
+  hall            Hall                  @relation(fields: [hallId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime              @db.Date
+  eventType       BookingEventType
+  guestCount      Int
+  customerName    String
+  customerPhone   String
+  specialRequests String?
+  paymentMethod   BookingPaymentMethod
+  advanceAmount   Int
+  totalAmount     Int
+  status          BookingStatus         @default(PENDING)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([hallId, date])
+  @@index([userId])
   @@index([createdAt])
 }

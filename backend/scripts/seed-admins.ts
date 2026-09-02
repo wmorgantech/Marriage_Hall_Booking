@@ -16,17 +16,20 @@ type Seed = {
   role: 'ADMIN' | 'SUPERADMIN';
 };
 
+// Passwords come from the environment so a real deployment is forced to
+// supply real values — the literals below are local-dev fallbacks only,
+// never used if SEED_ADMIN_PASSWORD / SEED_SUPERADMIN_PASSWORD are set.
 const ACCOUNTS: Seed[] = [
   {
     email: 'admin@checknbook.com',
-    password: 'admin123',
+    password: process.env.SEED_ADMIN_PASSWORD || 'admin123',
     phone: '+910000000001',
     name: 'Platform Admin',
     role: 'ADMIN',
   },
   {
     email: 'superadmin@checknbook.com',
-    password: 'super123',
+    password: process.env.SEED_SUPERADMIN_PASSWORD || 'super123',
     phone: '+910000000002',
     name: 'Super Admin',
     role: 'SUPERADMIN',
@@ -34,6 +37,18 @@ const ACCOUNTS: Seed[] = [
 ];
 
 async function main() {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.ALLOW_SEED !== 'true' &&
+    (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_SUPERADMIN_PASSWORD)
+  ) {
+    throw new Error(
+      'Refusing to seed admin accounts in NODE_ENV=production without real passwords. ' +
+        'Set SEED_ADMIN_PASSWORD and SEED_SUPERADMIN_PASSWORD (or ALLOW_SEED=true to ' +
+        'proceed with the local-dev defaults, not recommended in production).',
+    );
+  }
+
   for (const a of ACCOUNTS) {
     const passwordHash = await bcrypt.hash(a.password, 10);
     const user = await prisma.user.upsert({

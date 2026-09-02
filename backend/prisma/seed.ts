@@ -135,6 +135,16 @@ type HallSeed = {
 };
 
 async function main() {
+  // This script wipes existing Hall/Availability data and replaces it with
+  // ~1,000 fabricated demo halls. It must never run against a real database.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    throw new Error(
+      'Refusing to run the demo seed against NODE_ENV=production. ' +
+        'This would delete all existing halls/availability and replace them with fake data. ' +
+        'If you really intend to seed this database, set ALLOW_SEED=true explicitly.',
+    );
+  }
+
   console.log('🧹  Wiping existing halls + availability…');
   await prisma.availability.deleteMany();
   await prisma.hall.deleteMany();

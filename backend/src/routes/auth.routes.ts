@@ -5,11 +5,9 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { signToken } from '../lib/jwt';
 import { auth } from '../middleware/auth';
+import { requestOtp, verifyOtp } from '../lib/otp';
 
 const router = Router();
-
-// Static OTP for dev/demo. Replace with SMS-gateway integration before going live.
-const STATIC_OTP = '1234';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Owner name is required'),
@@ -84,9 +82,8 @@ const otpRequestSchema = z.object({
 
 router.post('/otp/request', async (req, res, next) => {
   try {
-    otpRequestSchema.parse(req.body);
-    // Intentionally empty: SMS gateway integration goes here.
-    // For now we always succeed; the UI tells the user to enter 1234.
+    const { phone } = otpRequestSchema.parse(req.body);
+    await requestOtp(phone);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -100,7 +97,7 @@ const otpVerifySchema = z.object({
 router.post('/otp/verify', async (req, res, next) => {
   try {
     const { phone, name, otp } = otpVerifySchema.parse(req.body);
-    if (otp !== STATIC_OTP) return res.status(401).json({ error: 'Invalid OTP. Try 1234.' });
+    if (!(await verifyOtp(phone, otp))) return res.status(401).json({ error: 'Invalid OTP.' });
 
     let user = await prisma.user.findUnique({ where: { phone } });
     if (user && user.role !== 'USER') {

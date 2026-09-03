@@ -25,9 +25,6 @@ type SortKey = 'popularity' | 'price-asc' | 'capacity-desc';
 
 const PAGE_SIZE = 12;
 
-const HERO_IMG =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuCzCGbp6C-tjf98MFUCt_o7hc8Upibuc4mC6PGMmZrvsf_zgKic6LtNjlKcoEQMDvunvJ42fhIzGXOj05R66-uuOJgjF69z46SLQzK9LzH4JGm-CufT9nosjfrUj5Sog3N0p7501EkVgTmFJXqBSW6XBaGxLd3nvoHiqUloxrUIykIl3AwHtN0VZN6fEuWh34btqFjCgy7VIDPRDTja-Zlt2i3hin1psEnkYp97nDt8HCMaRYHefIM9O1GFJKLnSzBywKHwaxADpQ';
-
 export default function Search() {
   const { t, en, lang } = useT();
   const nav = useNavigate();
@@ -378,11 +375,8 @@ export default function Search() {
     <>
       {/* Hero */}
       <section className="relative min-h-[clamp(560px,70vh,680px)] w-full overflow-hidden -mt-20">
-        <img
-          alt="Grand South Indian Wedding Hall"
-          className="absolute inset-0 w-full h-full object-cover"
-          src={HERO_IMG}
-        />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container to-primary" />
+        <div className="kolam-bg absolute inset-0 pointer-events-none" aria-hidden />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
         <div className="relative z-10 h-full flex items-start">
           <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6 pt-[14rem] pb-10 md:pb-12">

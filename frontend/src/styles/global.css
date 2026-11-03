@@ -123,7 +123,7 @@ img {
 
 /* Subtle kolam dot pattern background for footer / decorative blocks */
 .kolam-bg {
-  background-image: radial-gradient(#d4af37 0.5px, transparent 0.5px);
+  background-image: radial-gradient(#C69A45 0.5px, transparent 0.5px);
   background-size: 24px 24px;
   opacity: 0.06;
 }
@@ -138,21 +138,21 @@ img {
 /* -------- react-day-picker — Vivaha theme -------- */
 .rdp {
   --rdp-cell-size: 40px;
-  --rdp-accent-color: #610000;
-  --rdp-background-color: #f5ece7;
-  --rdp-accent-color-dark: #8b0000;
+  --rdp-accent-color: #0B4D38;
+  --rdp-background-color: #F2EDDD;
+  --rdp-accent-color-dark: #064E3B;
   margin: 0;
   font-family: 'Manrope', sans-serif;
 }
 
 .rdp-caption_label {
   font-family: 'Noto Serif', serif;
-  color: #610000;
+  color: #0B4D38;
   font-weight: 700;
 }
 
 .rdp-head_cell {
-  color: #5a403c;
+  color: #4A6258;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -167,24 +167,25 @@ img {
 .rdp-day_selected,
 .rdp-day_selected:focus-visible,
 .rdp-day_selected:hover {
-  background-color: #610000;
+  background-color: #0B4D38;
   color: #fff;
 }
 
 .rdp-day_booked {
   background-color: #ffe4e4 !important;
-  color: #8b0000 !important;
+  color: #064E3B !important;
   text-decoration: line-through;
   cursor: not-allowed;
 }
 
-/* Auspicious (muhurtham) wedding dates — gold accent + star marker */
+/* Auspicious (muhurtham) wedding dates — blinking green when free, red when booked */
 .rdp-day_muhurtham {
   position: relative;
-  background-color: #fff8e1 !important;
-  color: #7a5a00 !important;
-  font-weight: 700 !important;
-  box-shadow: inset 0 0 0 1.5px rgba(212, 175, 55, 0.7);
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 0 0 2px #22c55e;
+  animation: muhurtham-blink 1.6s ease-in-out infinite;
 }
 .rdp-day_muhurtham::after {
   content: '★';
@@ -193,26 +194,48 @@ img {
   right: 3px;
   font-size: 9px;
   line-height: 1;
-  color: #d4af37;
+  color: #C69A45;
   pointer-events: none;
 }
-/* When a muhurtham date is also booked, the booked styling wins, but keep the star */
-.rdp-day_booked.rdp-day_muhurtham {
-  background-color: #ffe4e4 !important;
-  color: #8b0000 !important;
-  box-shadow: none;
+@keyframes muhurtham-blink {
+  0%, 100% { background-color: #dcfce7; box-shadow: inset 0 0 0 2px #22c55e, 0 0 0 0 rgba(34, 197, 94, 0.55); }
+  50% { background-color: #86efac; box-shadow: inset 0 0 0 2px #16a34a, 0 0 0 5px rgba(34, 197, 94, 0); }
 }
-/* When selected, keep the star visible against the dark fill */
+.muhurtham-chip-blink { animation: muhurtham-blink 1.6s ease-in-out infinite; }
+/* A date picked in the multi-date picker wins over the muhurtham highlight (it keeps its ★) */
+.rdp-day_picked,
+.rdp-day_picked.rdp-day_muhurtham {
+  background-color: #0B4D38 !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 2px #C69A45;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rdp-day_muhurtham, .muhurtham-chip-blink { animation: none; }
+}
+/* Booked muhurtham: solid red, no blinking, star kept */
+.rdp-day_booked.rdp-day_muhurtham {
+  background-color: #fecaca !important;
+  color: #7f1d1d !important;
+  box-shadow: inset 0 0 0 2px #dc2626;
+  animation: none;
+}
+/* Selected: dark fill wins, no blinking */
+.rdp-day_selected.rdp-day_muhurtham {
+  background-color: #0B4D38 !important;
+  color: #fff !important;
+  animation: none;
+}
 .rdp-day_selected.rdp-day_muhurtham::after {
   color: #ffd86b;
 }
 .legend-chip--muhurtham {
-  background: #fff8e1;
-  border: 1px solid rgba(212, 175, 55, 0.7);
+  background: #dcfce7;
+  border: 1px solid #22c55e;
 }
 
 .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
-  background-color: #f5ece7;
+  background-color: #F2EDDD;
 }
 
 /* iOS safe-area support for mobile bottom nav */
@@ -231,25 +254,25 @@ img {
   border-radius: 1rem;
   padding: 2rem;
   box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-  border-top: 2px solid rgba(212, 175, 55, 0.45);
+  border-top: 2px solid rgba(198,154,69, 0.45);
 }
-.panel h1, .panel h2 { font-family: 'Noto Serif', serif; color: #610000; }
-.panel .section__title { font-family: 'Noto Serif', serif; color: #610000; font-size: 1.5rem; }
-.panel .section__sub { color: #5a403c; font-size: 0.875rem; }
+.panel h1, .panel h2 { font-family: 'Noto Serif', serif; color: #0B4D38; }
+.panel .section__title { font-family: 'Noto Serif', serif; color: #0B4D38; font-size: 1.5rem; }
+.panel .section__sub { color: #4A6258; font-size: 0.875rem; }
 .stack > * + * { margin-top: 1rem; }
 .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-.field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5a403c; margin-bottom: 0.5rem; }
+.field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #4A6258; margin-bottom: 0.5rem; }
 .input, .textarea, select {
   width: 100%;
   border: none;
-  border-bottom: 2px solid rgba(212,175,55,0.4);
+  border-bottom: 2px solid rgba(198,154,69,0.4);
   background: transparent;
   padding: 0.5rem 0;
   font-size: 1rem;
   font-family: inherit;
   outline: none;
 }
-.input:focus, .textarea:focus, select:focus { border-bottom-color: #610000; }
+.input:focus, .textarea:focus, select:focus { border-bottom-color: #0B4D38; }
 .textarea { min-height: 80px; resize: vertical; }
 .alert { padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; }
 .alert--error { background: #ffdad6; color: #93000a; }
@@ -267,14 +290,14 @@ img {
   cursor: pointer;
   transition: all 0.15s;
 }
-.btn--primary { background: #610000; color: #fff; box-shadow: 0 6px 18px rgba(97,0,0,0.15); }
-.btn--primary:hover:not(:disabled) { background: #8b0000; }
+.btn--primary { background: #0B4D38; color: #fff; box-shadow: 0 6px 18px rgba(11,77,56,0.15); }
+.btn--primary:hover:not(:disabled) { background: #064E3B; }
 .btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn--sm { padding: 0.5rem 0.875rem; font-size: 0.7rem; }
 .btn--lg { padding: 1rem 1.5rem; font-size: 0.8rem; }
 .btn--block { width: 100%; justify-content: center; }
-.btn--ghost { background: transparent; color: #610000; border: 1px solid rgba(212,175,55,0.6); }
-.text-muted { color: #5a403c; }
+.btn--ghost { background: transparent; color: #0B4D38; border: 1px solid rgba(198,154,69,0.6); }
+.text-muted { color: #4A6258; }
 .badge {
   display: inline-flex;
   align-items: center;
@@ -282,8 +305,8 @@ img {
   border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 700;
-  background: rgba(212,175,55,0.15);
-  color: #610000;
+  background: rgba(198,154,69,0.15);
+  color: #0B4D38;
 }
 .badge--pending { background: #fef3c7; color: #92400e; }
 .spin {
@@ -299,33 +322,40 @@ img {
 .empty {
   padding: 3rem 1.5rem;
   text-align: center;
-  background: #fbf2ed;
+  background: #F8F4E8;
   border-radius: 1rem;
-  color: #5a403c;
+  color: #4A6258;
 }
-.empty__title { font-family: 'Noto Serif', serif; font-size: 1.25rem; color: #610000; margin-bottom: 0.5rem; }
-.dashboard { display: grid; gap: 1.5rem; }
+.empty__title { font-family: 'Noto Serif', serif; font-size: 1.25rem; color: #0B4D38; margin-bottom: 0.5rem; }
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
 .dashboard__header { display: flex; justify-content: space-between; align-items: end; gap: 1rem; flex-wrap: wrap; }
-.dashboard__header h1 { font-family: 'Noto Serif', serif; color: #610000; font-size: 1.75rem; margin: 0 0 0.25rem; }
-.dashboard__header p { color: #5a403c; margin: 0; }
+.dashboard__header h1 { font-family: 'Noto Serif', serif; color: #0B4D38; font-size: 1.75rem; margin: 0 0 0.25rem; }
+.dashboard__header p { color: #4A6258; margin: 0; }
 .halls-strip { list-style: none; padding: 0; margin: 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .halls-strip button {
   padding: 0.5rem 0.875rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(212,175,55,0.4);
+  border: 1px solid rgba(198,154,69,0.4);
   background: #fff;
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #5a403c;
+  color: #4A6258;
 }
-.halls-strip button.is-active { background: #610000; color: #fff; border-color: #610000; }
+.halls-strip button.is-active { background: #0B4D38; color: #fff; border-color: #0B4D38; }
 .halls-strip__pending { color: #a16207; font-size: 0.75rem; margin-left: 0.25rem; }
 .calendar-toolbar { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; flex-wrap: wrap; }
-.calendar-toolbar label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #5a403c; }
+.calendar-toolbar label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #4A6258; }
 .calendar-toolbar select { width: auto; padding: 0.375rem 0.5rem; }
-.legend { display: flex; gap: 1rem; margin: 0.75rem 0; font-size: 0.75rem; color: #5a403c; }
+.legend { display: flex; gap: 1rem; margin: 0.75rem 0; font-size: 0.75rem; color: #4A6258; }
 .legend-chip { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 0.25rem; margin-right: 0.25rem; vertical-align: middle; }
 .legend-chip--available { background: #dcfce7; border: 1px solid #86efac; }
 .legend-chip--booked { background: #ffe4e4; border: 1px solid #fca5a5; }
-.legend-chip--selected { background: #ffb4a8; border: 1px solid #610000; }
+.legend-chip--selected { background: #9FD3BA; border: 1px solid #0B4D38; }
+
+/* react-day-picker v9 theme variables (the v8-style .rdp rules above no longer match its root) */
+:root .rdp-root {
+  --rdp-accent-color: #0B4D38;
+  --rdp-accent-background-color: #F2EDDD;
+  font-family: 'Manrope', sans-serif;
+}

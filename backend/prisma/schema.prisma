@@ -150,3 +150,8 @@ model Booking {
   @@index([userId])
   @@index([createdAt])
 }
+
+model MuhurthamDate {
+  date      DateTime @id @db.Date
+  createdAt DateTime @default(now())
+}

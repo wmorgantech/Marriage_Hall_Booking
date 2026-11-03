@@ -22,6 +22,10 @@ router.post('/register', async (req, res, next) => {
     const { name, phone, email, password, hallName } = registerSchema.parse(req.body);
     const existing = await prisma.user.findUnique({ where: { phone } });
     if (existing) return res.status(409).json({ error: 'This phone number is already registered. Please sign in instead.' });
+    if (email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
+      if (emailTaken) return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -65,6 +69,10 @@ router.post('/login', async (req, res, next) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    // Operators sign in with email through /admin-login; phone+password is for hall owners only.
+    if (user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'This account cannot sign in here. Operators use the admin console.' });
+    }
 
     const token = signToken({ sub: user.id, role: user.role });
     res.json({
@@ -97,7 +105,7 @@ const otpVerifySchema = z.object({
 router.post('/otp/verify', async (req, res, next) => {
   try {
     const { phone, name, otp } = otpVerifySchema.parse(req.body);
-    if (!(await verifyOtp(phone, otp))) return res.status(401).json({ error: 'Invalid OTP.' });
+    if (!(await verifyOtp(phone, otp))) return res.status(401).json({ error: 'Invalid or expired OTP.' });
 
     let user = await prisma.user.findUnique({ where: { phone } });
     if (user && user.role !== 'USER') {

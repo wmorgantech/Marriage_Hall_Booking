@@ -9,7 +9,8 @@
 - **User flow**: pick a city, pick a date, see available halls in seconds. Tap to call or WhatsApp the owner.
 - **Owner flow**: register/login, add a hall, mark dates available/booked on a simple calendar.
 - **Admin flow** (basic): approve halls so only vetted listings appear in search.
-- **Non-goals for MVP**: payments, online booking, reviews, multi-day / multi-slot booking, photos gallery CDN. These are explicitly deferred.
+- **Booking**: signed-in guests send a booking request for a date (`Booking`, PENDING). The venue confirms or either side cancels (cancelling releases the date). The platform does not collect payment.
+- **Non-goals for MVP**: online payment collection, reviews, multi-day / multi-slot booking, photos gallery CDN. These are explicitly deferred.
 
 ## 2. Tech Stack
 
@@ -225,8 +226,8 @@ Index: `Hall(city, isApproved)`, `Availability(hallId, date)` — the UNIQUE con
 ## 11. Risks & Trade-offs
 
 - **Sparse availability model** means "is this hall free?" is a NOT EXISTS query — fine at MVP scale, may need caching past ~50k halls.
-- **No online payment / booking lock** — two users can both call an owner about the same date. Acceptable for MVP; owners confirm via phone.
-- **Phone as username** — great for Indian market, but needs SMS OTP eventually to prevent impersonation. Password for MVP.
+- **No online payment** — a booking request holds the date immediately (a per-hall row lock prevents double booking) but is only a request until the venue confirms it; the venue collects the advance.
+- **Phone as username** — great for Indian market. Guest OTP codes are random, hashed, single-use and expire, but there is no SMS gateway yet (dev logs the code; production refuses to send until `deliver()` in `lib/otp.ts` is implemented).
 - **Admin approval** gates spam but adds friction. MVP sends a simple email; later add an admin web UI.
 
 ## 12. 1–2 Week Delivery Roadmap

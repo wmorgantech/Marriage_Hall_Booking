@@ -16,38 +16,33 @@ type Seed = {
   role: 'ADMIN' | 'SUPERADMIN';
 };
 
-// Passwords come from the environment so a real deployment is forced to
-// supply real values — the literals below are local-dev fallbacks only,
-// never used if SEED_ADMIN_PASSWORD / SEED_SUPERADMIN_PASSWORD are set.
-const ACCOUNTS: Seed[] = [
-  {
-    email: 'admin@checknbook.com',
-    password: process.env.SEED_ADMIN_PASSWORD || 'admin123',
-    phone: '+910000000001',
-    name: 'Platform Admin',
-    role: 'ADMIN',
-  },
-  {
-    email: 'superadmin@checknbook.com',
-    password: process.env.SEED_SUPERADMIN_PASSWORD || 'super123',
-    phone: '+910000000002',
-    name: 'Super Admin',
-    role: 'SUPERADMIN',
-  },
-];
+// Passwords always come from the environment (backend/.env) — there are no
+// built-in defaults, so no environment can end up with a guessable operator login.
+function required(name: 'SEED_ADMIN_PASSWORD' | 'SEED_SUPERADMIN_PASSWORD'): string {
+  const v = process.env[name];
+  if (!v || v.length < 12) {
+    throw new Error(`Set ${name} (min 12 characters) in backend/.env before running this script.`);
+  }
+  return v;
+}
 
 async function main() {
-  if (
-    process.env.NODE_ENV === 'production' &&
-    process.env.ALLOW_SEED !== 'true' &&
-    (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_SUPERADMIN_PASSWORD)
-  ) {
-    throw new Error(
-      'Refusing to seed admin accounts in NODE_ENV=production without real passwords. ' +
-        'Set SEED_ADMIN_PASSWORD and SEED_SUPERADMIN_PASSWORD (or ALLOW_SEED=true to ' +
-        'proceed with the local-dev defaults, not recommended in production).',
-    );
-  }
+  const ACCOUNTS: Seed[] = [
+    {
+      email: 'admin@checknbook.com',
+      password: required('SEED_ADMIN_PASSWORD'),
+      phone: '+910000000001',
+      name: 'Platform Admin',
+      role: 'ADMIN',
+    },
+    {
+      email: 'superadmin@checknbook.com',
+      password: required('SEED_SUPERADMIN_PASSWORD'),
+      phone: '+910000000002',
+      name: 'Super Admin',
+      role: 'SUPERADMIN',
+    },
+  ];
 
   for (const a of ACCOUNTS) {
     const passwordHash = await bcrypt.hash(a.password, 10);

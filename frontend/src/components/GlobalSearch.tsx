@@ -8,12 +8,13 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type Hall } from '../api/client';
+import HallPhoto from './HallPhoto';
 import { useT } from '../i18n';
 import { formatCity } from '../i18n/cityNames';
 
 type SuggestionKind = 'hall' | 'area' | 'city';
 type Suggestion =
-  | { kind: 'hall'; id: string; label: string; sub: string; imageUrl?: string | null }
+  | { kind: 'hall'; id: string; path?: string; label: string; sub: string; imageUrl?: string | null }
   | { kind: 'area'; label: string; sub: string; city: string; area: string }
   | { kind: 'city'; label: string; sub: string; city: string };
 
@@ -102,6 +103,7 @@ export default function GlobalSearch({
     const halls: Suggestion[] = hallSugs.map((h) => ({
       kind: 'hall',
       id: h.id,
+      path: h.path,
       label: h.name,
       sub: h.area ? `${h.area}, ${formatCity(h.city, lang)}` : formatCity(h.city, lang),
       imageUrl: h.imageUrl,
@@ -157,7 +159,7 @@ export default function GlobalSearch({
     inputRef.current?.blur();
 
     if (s.kind === 'hall') {
-      nav(`/halls/${s.id}`);
+      nav(s.path ?? `/halls/${encodeURIComponent(s.id)}`);
     } else if (s.kind === 'area') {
       nav(`/?city=${encodeURIComponent(s.city)}&area=${encodeURIComponent(s.area)}`);
     } else {
@@ -198,13 +200,13 @@ export default function GlobalSearch({
   const isHeader = variant === 'header';
   const inputClass = isHeader
     ? 'w-full pl-10 pr-10 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-primary/30 focus:bg-white transition-all'
-    : 'w-full pl-12 pr-10 py-3.5 bg-white border border-yellow-600/30 rounded-full text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all';
+    : 'w-full h-12 pl-10 pr-10 bg-white border border-gold/50 rounded-xl text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
       <span
         className={`material-symbols-outlined absolute ${
-          isHeader ? 'left-3 text-slate-400' : 'left-4 text-primary'
+          isHeader ? 'left-3 text-slate-400' : 'left-3.5 text-primary'
         } top-1/2 -translate-y-1/2 pointer-events-none`}
         aria-hidden
       >
@@ -248,7 +250,7 @@ export default function GlobalSearch({
           aria-label="Search suggestions"
           className={`absolute z-50 mt-2 ${
             isHeader ? 'right-0 w-[24rem] max-w-[80vw]' : 'left-0 right-0'
-          } bg-white rounded-2xl shadow-soft-lg ring-1 ring-yellow-600/20 overflow-hidden`}
+          } bg-white rounded-2xl shadow-soft-lg ring-1 ring-gold/20 overflow-hidden`}
           style={{ animation: 'cnb-fade-in 140ms ease-out' }}
         >
           {/* Empty state — show recent searches */}
@@ -326,13 +328,13 @@ export default function GlobalSearch({
             </div>
           )}
 
-          <div className="px-4 py-2 border-t border-yellow-600/10 bg-surface-container-low/40 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+          <div className="px-4 py-2 border-t border-gold/10 bg-surface-container-low/40 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white rounded border border-yellow-600/20">↵</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white rounded border border-gold/20">↵</kbd>
               to open
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white rounded border border-yellow-600/20">Esc</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white rounded border border-gold/20">Esc</kbd>
               to close
             </span>
           </div>
@@ -396,18 +398,14 @@ function Sections({
                   }`}
                 >
                   {s.kind === 'hall' ? (
-                    s.imageUrl ? (
-                      <img
-                        src={s.imageUrl}
-                        alt=""
-                        loading="lazy"
-                        className="w-10 h-10 rounded-lg object-cover shrink-0"
-                      />
-                    ) : (
-                      <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-gold/20 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-primary text-[20px]">temple_hindu</span>
-                      </span>
-                    )
+                    <HallPhoto
+                      src={s.imageUrl}
+                      venueOnly
+                      alt=""
+                      loading="lazy"
+                      iconClass="text-[20px]"
+                      className="w-10 h-10 rounded-lg object-cover shrink-0"
+                    />
                   ) : (
                     <span className="w-10 h-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-gold text-[20px]">

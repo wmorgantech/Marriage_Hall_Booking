@@ -82,10 +82,13 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
     setBusy(true);
     try {
       await api.requestOtp(e164);
+      setOtp('');
       setStep('otp');
       setResendIn(30);
     } catch (err) {
-      setError((err as Error).message);
+      // The API masks provider failures (WhatsApp unreachable etc.) as a generic server error.
+      const msg = (err as Error).message;
+      setError(/internal server error|^request failed: 5\d\d/i.test(msg) ? en('otp_send_failed') : msg);
     } finally {
       setBusy(false);
     }
@@ -131,7 +134,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
         className="absolute inset-0 bg-black/55 backdrop-blur-sm"
       />
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-yellow-600/20 overflow-hidden"
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-gold/20 overflow-hidden"
         style={{ animation: 'cnb-fade-in 160ms ease-out' }}
       >
         <div className="bg-gradient-to-r from-primary to-primary-container px-6 py-5 flex items-center gap-3">
@@ -197,7 +200,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !busy) sendOtp(); }}
-                    placeholder="98765 43210"
+                    placeholder="XXXXX XXXXX"
                     className="flex-1 px-3 py-2.5 text-sm tracking-wider focus:outline-none"
                   />
                 </div>
@@ -216,7 +219,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
                 type="button"
                 onClick={sendOtp}
                 disabled={busy || phone.length < 10}
-                className="w-full bg-primary text-white py-3 rounded-xl font-bold tracking-widest text-xs shadow-md shadow-red-900/20 hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-primary text-white py-3 rounded-xl font-bold tracking-widest text-xs shadow-md shadow-primary/20 hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {busy ? t('otp_sending') : t('otp_send_btn')}
               </button>
@@ -260,9 +263,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
                   placeholder="• • • •"
                   className="w-full border border-gold/40 rounded-lg px-3 py-3 text-center text-2xl font-bold tracking-[0.6em] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
-                <p className="text-[11px] text-on-surface-variant mt-2 italic">
-                  {t('otp_demo_hint')} <span className="font-bold text-primary not-italic">1234</span>
-                </p>
+                <p className="mt-2 text-xs text-on-surface-variant text-center">{t('otp_expiry_note')}</p>
               </div>
 
               {error && (
@@ -275,7 +276,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
                 type="button"
                 onClick={verifyOtp}
                 disabled={busy || otp.length !== 4}
-                className="w-full bg-primary text-white py-3 rounded-xl font-bold tracking-widest text-xs shadow-md shadow-red-900/20 hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-primary text-white py-3 rounded-xl font-bold tracking-widest text-xs shadow-md shadow-primary/20 hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {busy ? t('otp_verifying') : t('otp_verify_btn')}
               </button>
@@ -298,7 +299,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
             </>
           )}
 
-          <p className="text-[10px] text-center text-on-surface-variant pt-2 border-t border-yellow-600/10">
+          <p className="text-[10px] text-center text-on-surface-variant pt-2 border-t border-gold/10">
             {t('otp_consent')}
           </p>
         </div>

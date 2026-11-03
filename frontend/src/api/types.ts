@@ -38,13 +38,22 @@ export interface Hall {
   advancePercent?: number;
   cancellationPolicy?: string | null;
   houseRules?: string | null;
+  /** Readable URL from the API, e.g. /halls/kongu-palace-chromepet/chennai (falls back to /halls/<id>). */
+  path?: string;
+  /** Only on multi-date searches: which of `checkedDates` the hall is free on (bookings included). */
+  freeDates?: string[];
+  checkedDates?: string[];
 }
+
+export type DateMatch = 'all' | 'any';
 
 export interface Availability {
   id: string;
   hallId: string;
   date: string;               // ISO date, YYYY-MM-DD
   status: AvailabilityStatus;
+  /** 'booking' = held by a PENDING/CONFIRMED booking (no customer details are sent). */
+  source?: 'owner' | 'booking';
 }
 
 // ---------- Request / Response DTOs ----------
@@ -73,16 +82,46 @@ export interface SearchHallsQuery {
   date?: string;           // single-date shorthand (kept for back-compat)
   fromDate?: string;       // ISO YYYY-MM-DD
   toDate?: string;         // ISO YYYY-MM-DD
+  dates?: string[];        // several separate dates (max 10)
+  match?: DateMatch;       // all = free on every date (default), any = on at least one
   hasRooms?: boolean;
   hasAC?: boolean;
+  hasDining?: boolean;
+  amenities?: string[];    // hall must have every one
   q?: string;
   minPrice?: number;
   maxPrice?: number;
+  minCapacity?: number;
+  maxCapacity?: number;
+  sort?: 'popularity' | 'price-asc' | 'capacity-desc';
+  limit?: number;
+  offset?: number;
 }
 
 export interface HallFilters {
   cities: string[];
   areasByCity: Record<string, string[]>;
+  priceRange?: { min: number; max: number };
+}
+
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+export type BookingEventType = 'wedding' | 'engagement' | 'reception' | 'birthday' | 'corporate' | 'other';
+
+export interface Booking {
+  id: string;
+  hallId: string;
+  userId: string;
+  date: string;               // ISO date
+  eventType: BookingEventType;
+  guestCount: number;
+  customerName: string;
+  customerPhone: string;
+  specialRequests?: string | null;
+  paymentMethod: 'upi' | 'card' | 'netbanking' | 'cash';
+  advanceAmount: number;
+  totalAmount: number;
+  status: BookingStatus;
+  createdAt: string;
 }
 
 export interface CreateHallRequest {

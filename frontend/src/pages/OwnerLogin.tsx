@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, setSessionUser, setToken } from '../api/client';
+import { api, normalizePhone, setSessionUser, setToken } from '../api/client';
 import { useT } from '../i18n';
 
 export default function OwnerLogin() {
@@ -13,13 +13,16 @@ export default function OwnerLogin() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setLoading(true); setError(null);
+    setError(null);
+    const e164 = normalizePhone(phone);
+    if (!e164) { setError('Enter a valid mobile number, e.g. +91 XXXXX XXXXX.'); return; }
+    setLoading(true);
     try {
-      const { token, user } = await api.login(phone.trim(), password);
+      const { token, user } = await api.login(e164, password);
       setToken(token);
       setSessionUser(user);
       window.dispatchEvent(new Event('cnb:auth-changed'));
-      nav(user.role === 'ADMIN' ? '/admin' : '/owner/dashboard');
+      nav('/owner/dashboard');
     } catch (err: unknown) {
       setError((err as Error).message ?? 'Login failed');
     } finally {
@@ -46,7 +49,7 @@ export default function OwnerLogin() {
               id="phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
+              placeholder="+91 XXXXX XXXXX"
               autoComplete="tel"
               required
               className="w-full border-b-2 border-gold/40 bg-transparent py-2 focus:ring-0 focus:border-primary text-base"
@@ -78,7 +81,7 @@ export default function OwnerLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white font-bold py-4 rounded-xl tracking-widest text-xs shadow-lg shadow-red-900/20 active:scale-95 transition-all disabled:opacity-60"
+            className="w-full bg-primary text-white font-bold py-4 rounded-xl tracking-widest text-xs shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-60"
           >
             {loading ? t('signing_in') : t('sign_in_btn')}
           </button>

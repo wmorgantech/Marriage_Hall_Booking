@@ -7,12 +7,19 @@ import {
   setToken,
 } from '../api/client';
 import { toastError, toastSuccess } from '../components/Toast';
+import HallPhoto from '../components/HallPhoto';
 
-const TAMIL_NADU_CITIES = [
-  'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem',
-  'Tirunelveli', 'Erode', 'Vellore', 'Thanjavur', 'Dindigul',
-];
+/** `value`, but only after it has stopped changing for `ms`. */
+function useDebounced<T>(value: T, ms = 700): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
 
+// Labels are matched verbatim by search filters (e.g. "Valet Parking" in Search.tsx).
 const AMENITIES_CATALOG = [
   'Centrally Air Conditioned',
   'Grand Dining Hall',
@@ -76,6 +83,15 @@ export default function AdminEditHall() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Raw text of the gallery box, kept separately from the parsed list: re-deriving the text from the list
+  // on every keystroke swallowed the Enter key, so a second URL line could never be typed.
+  const [galleryText, setGalleryText] = useState('');
+  // Photo previews wait until typing pauses — otherwise every half-typed URL ("https://images.u…") is fetched.
+  const previewCover = useDebounced(form.imageUrl);
+  const previewGallery = useDebounced(form.imageUrls);
+  // City suggestions come from the cities that already have halls/areas (free text still allowed).
+  const [cities, setCities] = useState<string[]>([]);
+  useEffect(() => { api.getHallFilters().then((f) => setCities(f.cities)).catch(() => undefined); }, []);
 
   useEffect(() => {
     if (!me) { nav('/admin/login'); return; }
@@ -111,6 +127,7 @@ export default function AdminEditHall() {
         };
         setForm(next);
         setOriginal(next);
+        setGalleryText(next.imageUrls.join('\n'));
         setError(null);
       })
       .catch((e) => {
@@ -171,7 +188,8 @@ export default function AdminEditHall() {
         amenities: form.amenities,
         price: Number(form.price) || 0,
         perEventPrice: form.perEventPrice.trim() === '' ? null : Number(form.perEventPrice),
-        advancePercent: Number(form.advancePercent) || 0,
+        // blank → the default (50). The old `Number('') || 0` silently saved 0% advance.
+        advancePercent: form.advancePercent.trim() === '' ? 50 : Number(form.advancePercent),
         contactNumber: form.contactNumber.trim() || undefined,
         imageUrl: form.imageUrl.trim() || null,
         imageUrls: form.imageUrls.filter((u) => u.trim()),
@@ -210,7 +228,7 @@ export default function AdminEditHall() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="min-h-screen bg-surface p-6 md:p-10">
         <p className="text-on-surface-variant flex items-center gap-2"><span className="spin" /> Loading hall…</p>
       </div>
     );
@@ -218,7 +236,7 @@ export default function AdminEditHall() {
 
   if (error && !form.name) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6 md:p-10 max-w-3xl">
+      <div className="min-h-screen bg-surface p-6 md:p-10 max-w-3xl">
         <p className="mb-4">
           <Link to="/admin" className="text-primary font-bold">← Back to console</Link>
         </p>
@@ -230,7 +248,7 @@ export default function AdminEditHall() {
   const dirty = JSON.stringify(form) !== JSON.stringify(original);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <div className="max-w-5xl mx-auto p-6 md:p-10">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
@@ -247,14 +265,14 @@ export default function AdminEditHall() {
               to={`/halls/${id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded-full bg-white border border-yellow-600/30 text-primary text-xs font-bold uppercase tracking-widest hover:bg-surface-container inline-flex items-center gap-2"
+              className="px-4 py-2 rounded-full bg-white border border-gold/30 text-primary text-xs font-bold uppercase tracking-widest hover:bg-surface-container inline-flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-base">visibility</span>
               View public page
             </Link>
             <Link
               to="/admin"
-              className="px-4 py-2 rounded-full bg-white border border-yellow-600/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:bg-surface-container"
+              className="px-4 py-2 rounded-full bg-white border border-gold/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:bg-surface-container"
             >
               ← Back
             </Link>
@@ -293,7 +311,7 @@ export default function AdminEditHall() {
                 type="tel"
                 value={form.contactNumber}
                 onChange={(e) => patch('contactNumber', e.target.value)}
-                placeholder="+918012345678"
+                placeholder="+91XXXXXXXXXX"
                 className={inputCls}
               />
             </Field>
@@ -312,7 +330,7 @@ export default function AdminEditHall() {
                   className={inputCls}
                 />
                 <datalist id="cities-dl">
-                  {TAMIL_NADU_CITIES.map((c) => <option key={c} value={c} />)}
+                  {cities.map((c) => <option key={c} value={c} />)}
                 </datalist>
               </Field>
               <Field label="Area / Locality" hint="Picked from admin-managed areas. Add a new one with +.">
@@ -406,7 +424,7 @@ export default function AdminEditHall() {
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
                         on
                           ? 'bg-primary text-white shadow-sm'
-                          : 'bg-white border border-yellow-600/30 text-on-surface hover:bg-surface-container'
+                          : 'bg-white border border-gold/30 text-on-surface hover:bg-surface-container'
                       }`}
                     >
                       {on && '✓ '}{a}
@@ -427,6 +445,7 @@ export default function AdminEditHall() {
                 <input
                   type="number"
                   min={0}
+                  max={100000000}
                   step={500}
                   value={form.price}
                   onChange={(e) => patch('price', e.target.value)}
@@ -434,17 +453,18 @@ export default function AdminEditHall() {
                   className={inputCls}
                 />
               </Field>
-              <Field label="Per event rate (₹)" hint="Optional — for full event packages.">
+              <Field label="Per event rate (₹)" hint="Informational only for now — bookings are priced from the per-day rate.">
                 <input
                   type="number"
                   min={0}
+                  max={500000000}
                   step={1000}
                   value={form.perEventPrice}
                   onChange={(e) => patch('perEventPrice', e.target.value)}
                   className={inputCls}
                 />
               </Field>
-              <Field label="Advance %" hint="Booking advance percentage.">
+              <Field label="Advance %" hint="Share of the day rate due as advance (0–100). Leave blank for the default, 50.">
                 <input
                   type="number"
                   min={0}
@@ -467,31 +487,34 @@ export default function AdminEditHall() {
                 placeholder="https://…"
                 className={inputCls}
               />
-              {form.imageUrl && (
-                <img
-                  src={form.imageUrl}
+              {previewCover && (
+                <HallPhoto
+                  src={previewCover}
                   alt=""
-                  className="mt-3 w-48 h-32 rounded-lg object-cover border border-yellow-600/20"
+                  className="mt-3 w-48 h-32 rounded-lg object-cover border border-gold/20"
                 />
               )}
             </Field>
 
             <Field label="Gallery image URLs" hint="One per line. Up to 20.">
               <textarea
-                value={form.imageUrls.join('\n')}
-                onChange={(e) => patch('imageUrls', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
+                value={galleryText}
+                onChange={(e) => {
+                  setGalleryText(e.target.value);
+                  patch('imageUrls', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean));
+                }}
                 rows={4}
                 placeholder={'https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg'}
                 className={`${inputCls} resize-y font-mono text-xs`}
               />
-              {form.imageUrls.length > 0 && (
+              {previewGallery.length > 0 && (
                 <div className="flex gap-2 mt-3 flex-wrap">
-                  {form.imageUrls.slice(0, 8).map((u) => (
-                    <img key={u} src={u} alt="" className="w-20 h-20 rounded-lg object-cover border border-yellow-600/20" />
+                  {previewGallery.slice(0, 8).map((u) => (
+                    <HallPhoto key={u} src={u} alt="" iconClass="text-3xl" className="w-20 h-20 rounded-lg object-cover border border-gold/20" />
                   ))}
-                  {form.imageUrls.length > 8 && (
-                    <div className="w-20 h-20 rounded-lg border border-yellow-600/20 bg-surface-container flex items-center justify-center text-xs text-on-surface-variant font-bold">
-                      +{form.imageUrls.length - 8}
+                  {previewGallery.length > 8 && (
+                    <div className="w-20 h-20 rounded-lg border border-gold/20 bg-surface-container flex items-center justify-center text-xs text-on-surface-variant font-bold">
+                      +{previewGallery.length - 8}
                     </div>
                   )}
                 </div>
@@ -531,7 +554,7 @@ export default function AdminEditHall() {
           </Section>
 
           {/* Sticky save bar */}
-          <div className="sticky bottom-0 -mx-6 md:-mx-10 px-6 md:px-10 py-4 bg-white/95 backdrop-blur-md border-t border-yellow-600/20 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] flex items-center justify-between gap-4 z-10">
+          <div className="sticky bottom-0 -mx-6 md:-mx-10 px-6 md:px-10 py-4 bg-white/95 backdrop-blur-md border-t border-gold/20 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] flex items-center justify-between gap-4 z-10">
             <p className="text-xs text-on-surface-variant">
               {savedAt ? (
                 <span className="text-green-700 font-bold inline-flex items-center gap-1">
@@ -551,7 +574,7 @@ export default function AdminEditHall() {
                 type="button"
                 onClick={reset}
                 disabled={!dirty || saving}
-                className="px-5 py-2.5 rounded-lg border border-yellow-600/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 rounded-lg border border-gold/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Reset
               </button>
@@ -571,11 +594,11 @@ export default function AdminEditHall() {
 }
 
 const inputCls =
-  'w-full border border-yellow-600/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white';
+  'w-full border border-gold/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white';
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl border border-yellow-600/10 shadow-sm p-6 md:p-7 space-y-4">
+    <section className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 md:p-7 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span>
         <h2 className="font-serif text-lg text-primary font-bold">{title}</h2>
@@ -671,14 +694,14 @@ function AreaPicker({ city, value, onChange }: { city: string; value: string; on
       )}
 
       {adding && (
-        <form onSubmit={createArea} className="mt-2 flex gap-2 items-stretch p-3 rounded-lg bg-surface-container-low border border-yellow-600/20">
+        <form onSubmit={createArea} className="mt-2 flex gap-2 items-stretch p-3 rounded-lg bg-surface-container-low border border-gold/20">
           <input
             type="text"
             autoFocus
             value={newArea}
             onChange={(e) => setNewArea(e.target.value)}
             placeholder={`New area in ${city}`}
-            className="flex-1 border border-yellow-600/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+            className="flex-1 border border-gold/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
           />
           <button
             type="submit"

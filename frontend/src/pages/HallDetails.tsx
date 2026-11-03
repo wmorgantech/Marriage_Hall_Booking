@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { api, getSessionUser, type Availability, type Hall, type SessionUser } from '../api/client';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { api, getSessionUser, hallHref, type Availability, type Hall, type SessionUser } from '../api/client';
 import AvailabilityCalendar from '../components/AvailabilityCalendar';
+import { toLocalDate, useMuhurthamDates } from '../data/muhurthamDates';
+import HallPhoto from '../components/HallPhoto';
+import { venueCover, venueGallery } from '../lib/hallPhotos';
 import OtpAuthModal from '../components/OtpAuthModal';
 import { useT } from '../i18n';
+
 
 function formatINR(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -11,45 +16,18 @@ function formatINR(n: number) {
 
 export default function HallDetails() {
   const { t } = useT();
-  const { id } = useParams<{ id: string }>();
+  // Two URL shapes: /halls/<slug>/<city> (readable) and /halls/<id> (old links — redirected to the readable one).
+  const { id, slug, city: citySlug } = useParams<{ id?: string; slug?: string; city?: string }>();
+  const nav = useNavigate();
+  const location = useLocation();
+  const key = slug && citySlug ? `${slug}/${citySlug}` : id ?? '';
   const [hall, setHall] = useState<Hall | null>(null);
   const [avail, setAvail] = useState<Availability[]>([]);
   const [similar, setSimilar] = useState<Hall[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
+  const [reload, setReload] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [openFaq, setOpenFaq] = useState<number | null>(2);
-
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      try {
-        const [h, a] = await Promise.all([api.getHall(id), api.getAvailability(id)]);
-        setHall(h);
-        setAvail(a);
-        try {
-          const sim = await api.searchHalls({ city: h.city });
-          setSimilar(sim.filter((x) => x.id !== h.id).slice(0, 6));
-        } catch {
-          /* ignore */
-        }
-      } catch (e: unknown) {
-        setError((e as Error).message);
-      }
-    })();
-  }, [id]);
-
-  const gallery = useMemo(() => {
-    if (!hall?.imageUrl) return [];
-    const base = hall.imageUrl;
-    if (base.includes('images.unsplash.com')) {
-      const sep = base.includes('?') ? '&' : '?';
-      return [base, `${base}${sep}crop=entropy`, `${base}${sep}sat=-15`, `${base}${sep}sat=-30`];
-    }
-    return [base];
-  }, [hall]);
-
-  const [activeImg, setActiveImg] = useState(0);
-  useEffect(() => setActiveImg(0), [gallery]);
 
   const [user, setUser] = useState<SessionUser | null>(() => getSessionUser());
   const [otpOpen, setOtpOpen] = useState(false);
@@ -64,6 +42,76 @@ export default function HallDetails() {
     };
   }, []);
   const isVerified = !!user;
+
+  // Refetched on sign-in/out: the API only includes the contact number for signed-in users.
+  // A different hall (similar-hall link, back/forward): clear the old one so its data never shows under the new URL.
+  useEffect(() => { setHall(null); setAvail([]); setSimilar([]); setError(null); }, [key]);
+
+  useEffect(() => {
+    if (!key) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = slug && citySlug ? await api.getHallByPath(slug, citySlug) : await api.getHall(id!);
+        if (cancelled) return;
+        // Old /halls/<id> link: show the readable URL instead (replace, so Back still works as expected).
+        if (!slug && h.path && h.path !== location.pathname && h.path.split('/').length === 4) {
+          nav(h.path + location.search + location.hash, { replace: true });
+        }
+        const a = await api.getAvailability(h.id);
+        if (cancelled) return;
+        setHall(h);
+        setAvail(a);
+        setError(null);
+        try {
+          const sim = await api.searchHalls({ city: h.city, limit: 7 });
+          if (!cancelled) setSimilar(sim.halls.filter((x) => x.id !== h.id).slice(0, 6));
+        } catch {
+          /* ignore */
+        }
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const message = (e as Error).message;
+        setError({ notFound: /not found|404/i.test(message), message });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, user?.id, reload]);
+
+  useEffect(() => {
+    if (!hall) return;
+    const prev = document.title;
+    document.title = `${hall.name}, ${hall.area ? hall.area + ', ' : ''}${hall.city} — CheckNBook`;
+    return () => { document.title = prev; };
+  }, [hall]);
+
+  // Only suitable hall photos: the gallery, or the single cover image (unsuitable demo images are skipped
+  // and the branded fallback is shown instead).
+  const gallery = useMemo(() => (hall ? venueGallery(hall) : []), [hall]);
+
+  const [activeImg, setActiveImg] = useState(0);
+  useEffect(() => setActiveImg(0), [gallery]);
+
+  const muhurthamDates = useMuhurthamDates();
+  // Next muhurtham dates with live availability, shown above the calendar.
+  const upcomingMuhurtham = useMemo(() => {
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const booked = new Set(avail.filter((a) => a.status === 'BOOKED').map((a) => a.date.slice(0, 10)));
+    return muhurthamDates.filter((d) => d >= todayKey)
+      .slice(0, 8)
+      .map((iso) => {
+        return { iso, date: toLocalDate(iso), booked: booked.has(iso) };
+      });
+  }, [avail, muhurthamDates]);
+
+  // Status of the date the visitor picked, from the hall's real availability rows.
+  const selectedStatus: 'available' | 'booked' | null = useMemo(() => {
+    if (!selectedDate) return null;
+    const key = format(selectedDate, 'yyyy-MM-dd');
+    return avail.some((a) => a.status === 'BOOKED' && a.date.slice(0, 10) === key) ? 'booked' : 'available';
+  }, [selectedDate, avail]);
   function maskPhone(p: string) {
     const digits = p.replace(/\D/g, '');
     if (digits.length < 4) return '••••••••••';
@@ -81,22 +129,48 @@ export default function HallDetails() {
 
   if (error) {
     return (
-      <div className="max-w-[1280px] mx-auto px-6 py-10">
-        <div className="px-4 py-3 bg-error-container text-on-error-container rounded-lg">{error}</div>
-        <p className="mt-4">
-          <Link to="/" className="text-primary font-bold">← Back to search</Link>
-        </p>
+      <div className="max-w-xl mx-auto px-6 py-16 text-center" role="alert">
+        <span className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-surface-container">
+          <span aria-hidden className="material-symbols-outlined text-5xl text-primary">{error.notFound ? 'search_off' : 'cloud_off'}</span>
+        </span>
+        <h1 className="font-serif text-2xl text-primary mt-4">{error.notFound ? t('hall_not_found') : t('hall_load_error')}</h1>
+        {error.notFound ? <p className="text-on-surface-variant mt-2">{t('nf_body')}</p> : <p className="text-on-surface-variant mt-2 text-sm">{error.message}</p>}
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          {!error.notFound && (
+            <button type="button" onClick={() => setReload((n) => n + 1)} className="h-11 px-6 rounded-xl bg-primary text-white font-bold">
+              {t('retry')}
+            </button>
+          )}
+          <Link to="/" className="h-11 px-6 rounded-xl border-2 border-primary text-primary font-bold inline-flex items-center justify-center">
+            {t('nf_home')}
+          </Link>
+        </div>
       </div>
     );
   }
   if (!hall) {
     return (
-      <div className="max-w-[1280px] mx-auto px-6 py-10">
-        <p className="text-on-surface-variant">Loading hall…</p>
+      <div className="max-w-[1280px] mx-auto px-4 md:px-6 py-6 md:py-10 animate-pulse" aria-busy="true" aria-label="Loading hall">
+        <div className="h-4 w-32 bg-surface-container rounded mb-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+          <div className="lg:col-span-8 h-[320px] md:h-[500px] bg-surface-container rounded-xl" />
+          <div className="lg:col-span-4 space-y-4">
+            <div className="h-10 w-3/4 bg-surface-container rounded" />
+            <div className="h-8 w-1/2 bg-surface-container rounded" />
+            <div className="h-24 bg-surface-container rounded" />
+            <div className="h-40 bg-surface-container rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
+  const heldByBookings = avail.some((a) => a.source === 'booking');
 
+  // Exact coordinates when the owner provided them, otherwise the street address.
+  const mapQuery =
+    hall.latitude != null && hall.longitude != null
+      ? `${hall.latitude},${hall.longitude}`
+      : encodeURIComponent(`${hall.address}, ${hall.city}`);
   const callHref = `tel:${hall.contactNumber}`;
   const waDigits = hall.contactNumber.replace(/^\+/, '').replace(/\D/g, '');
   const waHref = `https://wa.me/${waDigits}?text=${encodeURIComponent(
@@ -137,27 +211,28 @@ export default function HallDetails() {
                   }`}
                   aria-label={`Photo ${i + 1}`}
                 >
-                  <img className="w-full h-full object-cover" src={src} alt="" />
+                  <HallPhoto className="w-full h-full object-cover" src={src} alt="" iconClass="text-3xl" venueOnly />
                 </button>
               ))}
             </div>
           )}
 
           <div className="flex-1 relative rounded-xl overflow-hidden shadow-soft-lg group min-h-[320px]">
-            <div className="absolute top-4 right-4 bg-primary text-white px-4 py-1 font-bold text-sm tracking-widest rounded shadow-lg z-10">
-              {t('available')}
-            </div>
-            {gallery[activeImg] ? (
-              <img
-                className="w-full h-[360px] md:h-[500px] object-cover transition-transform duration-700 group-hover:scale-105"
-                src={gallery[activeImg]}
-                alt={hall.name}
-              />
-            ) : (
-              <div className="w-full h-[360px] md:h-[500px] bg-gradient-to-br from-primary/10 to-gold/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-8xl text-primary">temple_hindu</span>
+            {selectedStatus && (
+              <div className={`absolute top-4 right-4 text-white px-4 py-1 font-bold text-sm tracking-widest rounded shadow-lg z-10 ${
+                selectedStatus === 'booked' ? 'bg-red-600' : 'bg-green-600'
+              }`}>
+                {selectedStatus === 'booked' ? t('fully_booked') : t('available')}
               </div>
             )}
+            <HallPhoto
+              className="w-full h-[360px] md:h-[500px] object-cover transition-transform duration-700 group-hover:scale-105"
+              src={gallery[activeImg]}
+              alt={hall.name}
+              iconClass="text-8xl"
+              venueOnly
+              showcase
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
         </div>
@@ -171,13 +246,14 @@ export default function HallDetails() {
               <span className="font-serif text-h2 text-primary font-semibold">{formatINR(hall.price)}</span>
               <span className="text-on-surface-variant font-medium">{t('per_day_word')}</span>
             </div>
-            <p className="text-body-md md:text-body-lg text-on-surface-variant mb-8 border-l-4 border-gold pl-5 italic">
-              {hall.description ||
-                `Experience the zenith of South Indian tradition in a venue that breathes royalty. ${hall.name} offers a seamless blend of heritage architecture and modern luxury.`}
-            </p>
+            {hall.description && (
+              <p className="text-body-md md:text-body-lg text-on-surface-variant mb-8 border-l-4 border-gold pl-5 italic">
+                {hall.description}
+              </p>
+            )}
           </div>
 
-          <div className="bg-surface-container-low p-6 rounded-xl border border-yellow-600/10 shadow-sm">
+          <div className="bg-surface-container-low p-6 rounded-xl border border-gold/10 shadow-sm">
             <h3 className="font-serif text-h3 text-primary mb-4">Elite Facilities</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-3">
@@ -192,17 +268,28 @@ export default function HallDetails() {
                 <span className="material-symbols-outlined text-gold bg-white p-2 rounded-lg">bed</span>
                 <span className="font-medium">{hall.hasRooms ? 'Guest Rooms' : 'No Rooms'}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-gold bg-white p-2 rounded-lg">local_parking</span>
-                <span className="font-medium">Valet Parking</span>
-              </div>
+              {(hall.diningCapacity ?? 0) > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-gold bg-white p-2 rounded-lg">restaurant</span>
+                  <span className="font-medium">Dining for {hall.diningCapacity}</span>
+                </div>
+              )}
             </div>
+            {hall.amenities && hall.amenities.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-gold/10">
+                {hall.amenities.map((a) => (
+                  <span key={a} className="text-xs font-medium bg-white border border-gold/20 rounded-full px-3 py-1">
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       {/* Availability */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 py-12 border-y border-yellow-600/10">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 py-12 border-y border-gold/10">
         <div className="lg:col-span-8">
           <div className="flex flex-wrap justify-between items-end gap-4 mb-6">
             <div>
@@ -213,7 +300,11 @@ export default function HallDetails() {
                   {selectedDate ? selectedDate.toDateString() : t('pick_date')}
                 </span>
                 {selectedDate && ' — '}
-                {selectedDate && <span className="text-green-700 font-bold">{t('legend_available')}</span>}
+                {selectedStatus && (
+                  <span className={`${selectedStatus === 'booked' ? 'text-red-700' : 'text-green-700'} font-bold`}>
+                    {selectedStatus === 'booked' ? t('legend_booked') : t('legend_available')}
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -224,15 +315,62 @@ export default function HallDetails() {
                 <div className="w-3 h-3 bg-red-100 border border-red-300 rounded-sm" /> {t('legend_booked')}
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-[#fff8e1] border border-gold/70 rounded-sm relative">
+                <div className="w-3 h-3 bg-green-200 border border-green-500 rounded-sm relative muhurtham-chip-blink">
                   <span className="absolute -top-1 -right-1 text-gold text-[8px] leading-none">★</span>
                 </div>
                 {t('legend_muhurtham')}
               </div>
             </div>
           </div>
+          {heldByBookings && (
+            <p className="-mt-3 mb-5 text-xs text-on-surface-variant flex items-center gap-1.5">
+              <span aria-hidden className="material-symbols-outlined text-[16px] text-red-700">event_busy</span>
+              {t('legend_held')}
+            </p>
+          )}
 
-          <div className="bg-white rounded-2xl shadow-soft-lg overflow-hidden border border-yellow-600/10">
+          {upcomingMuhurtham.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-green-300 bg-gradient-to-br from-green-50 to-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="font-serif font-bold text-primary flex items-center gap-2">
+                  <span className="text-gold">★</span> {t('legend_muhurtham')}
+                </h3>
+                <span className="text-xs font-bold text-green-800">
+                  {upcomingMuhurtham.filter((m) => !m.booked).length} {t('legend_available')} ·{' '}
+                  <span className="text-red-700">
+                    {upcomingMuhurtham.filter((m) => m.booked).length} {t('legend_booked')}
+                  </span>
+                </span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {upcomingMuhurtham.map((m) => (
+                  <button
+                    key={m.iso}
+                    type="button"
+                    disabled={m.booked}
+                    onClick={() => setSelectedDate(m.date)}
+                    className={`shrink-0 rounded-xl px-3 py-2 text-center border-2 transition ${
+                      m.booked
+                        ? 'bg-red-50 border-red-300 text-red-800 line-through cursor-not-allowed'
+                        : selectedDate && selectedDate.toDateString() === m.date.toDateString()
+                          ? 'bg-primary border-primary text-white'
+                          : 'bg-green-100 border-green-500 text-green-900 muhurtham-chip-blink hover:bg-green-200'
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-widest">
+                      {m.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                    </div>
+                    <div className="text-lg font-bold leading-tight">{m.date.getDate()}</div>
+                    <div className="text-[10px] font-bold uppercase">
+                      {m.date.toLocaleDateString(undefined, { month: 'short' })}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl shadow-soft-lg overflow-hidden border border-gold/10">
             <div className="bg-primary text-white px-6 py-4 text-center">
               <span className="font-serif font-bold text-lg">{t('select_a_date')}</span>
             </div>
@@ -240,6 +378,7 @@ export default function HallDetails() {
               <AvailabilityCalendar
                 availability={avail}
                 mode="toggle"
+                blockBooked
                 selected={selectedDate ? [selectedDate] : []}
                 onToggle={(d) => setSelectedDate(d)}
               />
@@ -265,7 +404,7 @@ export default function HallDetails() {
               </div>
 
               {/* Office Contact (gated by OTP auth) */}
-              <div className="rounded-xl border border-yellow-600/30 bg-gradient-to-br from-white to-surface-container-low/60 p-5 mt-2">
+              <div className="rounded-xl border border-gold/30 bg-gradient-to-br from-white to-surface-container-low/60 p-5 mt-2">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-[20px]">support_agent</span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -369,10 +508,10 @@ export default function HallDetails() {
       <section className="py-12">
         <h2 className="font-serif text-h2 text-primary mb-6">{t('location_office')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 rounded-2xl overflow-hidden h-80 md:h-96 shadow-soft border border-yellow-600/10 bg-surface-container">
+          <div className="lg:col-span-2 rounded-2xl overflow-hidden h-80 md:h-96 shadow-soft border border-gold/10 bg-surface-container">
             <iframe
               title="Venue Location"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(hall.address + ', ' + hall.city)}&output=embed`}
+              src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
               width="100%"
               height="100%"
               loading="lazy"
@@ -385,7 +524,7 @@ export default function HallDetails() {
             <h4 className="font-serif text-h3 text-primary mb-2">{hall.name}</h4>
             <p className="text-on-surface-variant mb-6 leading-relaxed">{hall.address}</p>
 
-            <div className="rounded-xl bg-white border border-yellow-600/20 p-4 mb-6">
+            <div className="rounded-xl bg-white border border-gold/20 p-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <span className="material-symbols-outlined text-primary text-[18px]">call</span>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -417,7 +556,7 @@ export default function HallDetails() {
             </div>
 
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hall.address + ', ' + hall.city)}`}
+              href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-primary font-bold hover:underline mt-auto"
@@ -435,23 +574,19 @@ export default function HallDetails() {
           <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
             {similar.map((s) => (
               <Link
-                to={`/halls/${s.id}`}
+                to={hallHref(s)}
                 key={s.id}
-                className="min-w-[300px] bg-white rounded-xl shadow-soft overflow-hidden border border-yellow-600/10 group flex-shrink-0"
+                className="min-w-[300px] bg-white rounded-xl shadow-soft overflow-hidden border border-gold/10 group flex-shrink-0"
               >
                 <div className="h-44 overflow-hidden">
-                  {s.imageUrl ? (
-                    <img
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      src={s.imageUrl}
-                      alt={s.name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary/10 to-gold/20 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-5xl text-primary">temple_hindu</span>
-                    </div>
-                  )}
+                  <HallPhoto
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    src={venueCover(s)}
+                    venueOnly
+                    showcase
+                    alt={s.name}
+                    loading="lazy"
+                  />
                 </div>
                 <div className="p-5">
                   <h5 className="font-bold text-lg text-primary mb-1 font-serif">{s.name}</h5>
@@ -473,7 +608,7 @@ export default function HallDetails() {
 
       {/* FAQ — only rendered when the hall has real cancellation/house-rules content */}
       {faqs.length > 0 && (
-        <section className="py-12 border-t border-yellow-600/10" id="faq">
+        <section className="py-12 border-t border-gold/10" id="faq">
           <div className="max-w-3xl mx-auto">
             <h2 className="font-serif text-h2 text-primary mb-10 text-center">Planning Essentials</h2>
             <div className="space-y-4">

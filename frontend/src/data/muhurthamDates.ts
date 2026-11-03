@@ -1,5 +1,12 @@
-// Auspicious (muhurtham) wedding dates per Tamil panchangam.
-// Curated static list — replace with a panchangam API in v2.
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
+// Auspicious (muhurtham) wedding dates — built-in FALLBACK list (unverified placeholder).
+// The live list is managed by admins and served by /api/muhurtham-dates; this is only
+// used until that loads or if the API is unreachable.
+// 47 of these 48 dates fall on a Thursday, so it was generated, not taken from a
+// panchangam; it also ends 2027-05-20. Replace with data from a real panchangam
+// source (ideally served by the API so web + mobile share one copy) before relying
+// on the gold markers in production.
 // Format: ISO YYYY-MM-DD.
 
 export const MUHURTHAM_DATES_2026: string[] = [
@@ -56,19 +63,41 @@ export const MUHURTHAM_DATES_2027: string[] = [
   '2027-05-20',
 ];
 
-export const MUHURTHAM_DATES: string[] = [
-  ...MUHURTHAM_DATES_2026,
-  ...MUHURTHAM_DATES_2027,
-];
+const FALLBACK: string[] = [...MUHURTHAM_DATES_2026, ...MUHURTHAM_DATES_2027];
 
-export function muhurthamDateObjects(): Date[] {
-  return MUHURTHAM_DATES.map((d) => {
-    const [y, m, day] = d.split('-').map(Number);
-    return new Date(y, m - 1, day);
-  });
+let current: string[] = FALLBACK;
+let loaded = false;
+const listeners = new Set<() => void>();
+
+function set(dates: string[]) {
+  current = dates;
+  loaded = true;
+  listeners.forEach((l) => l());
 }
 
-export function isMuhurtham(date: Date): boolean {
-  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return MUHURTHAM_DATES.includes(iso);
+/** Fetch the admin-managed list once; later callers reuse it. */
+export function loadMuhurthamDates(force = false): Promise<void> {
+  if (loaded && !force) return Promise.resolve();
+  return api.getMuhurthamDates().then(set, () => { /* keep fallback */ });
+}
+
+/** Replace the shared list (used by the admin screen after add/remove). */
+export function setMuhurthamDates(dates: string[]) {
+  set(dates);
+}
+
+export function useMuhurthamDates(): string[] {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const l = () => tick((n) => n + 1);
+    listeners.add(l);
+    void loadMuhurthamDates();
+    return () => { listeners.delete(l); };
+  }, []);
+  return current;
+}
+
+export function toLocalDate(iso: string): Date {
+  const [y, m, day] = iso.split('-').map(Number);
+  return new Date(y, m - 1, day);
 }

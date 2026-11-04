@@ -12,7 +12,6 @@
     },
     "android": {
       "package": "com.checknbook.mobile",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#610000",
         "foregroundImage": "./assets/android-icon-foreground.png",

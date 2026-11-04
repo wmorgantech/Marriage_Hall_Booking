@@ -16,4 +16,3 @@ backend/prisma/seed.js.map
 
 # App/ is its own independent git repository (Expo mobile app), not part of
 # this workspace — ignored here so it's never tracked/embedded as a gitlink.
-/App/

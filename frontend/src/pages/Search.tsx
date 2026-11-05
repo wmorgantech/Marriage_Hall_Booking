@@ -12,15 +12,15 @@ import { fmtDay, isIsoDay, todayIso } from '../lib/dates';
 import { useT } from '../i18n';
 import { formatCity } from '../i18n/cityNames';
 
-type CapacityBand = 'upto300' | '300to1k' | '1000plus' | '';
+type CapacityBand = '1-200' | '201-500' | '501-1000' | '1001-1500' | '1500+' | '';
 type SortKey = 'popularity' | 'price-asc' | 'capacity-desc';
 
-// Inclusive bounds, identical on web and mobile (a 300-guest hall fits both
-// "up to 300" and "300 – 1,000"; same for 1,000).
 const CAPACITY_BANDS: Record<Exclude<CapacityBand, ''>, { min?: number; max?: number }> = {
-  upto300: { max: 300 },
-  '300to1k': { min: 300, max: 1000 },
-  '1000plus': { min: 1000 },
+  '1-200': { max: 200 },
+  '201-500': { min: 201, max: 500 },
+  '501-1000': { min: 501, max: 1000 },
+  '1001-1500': { min: 1001, max: 1500 },
+  '1500+': { min: 1501 },
 };
 // Must match the label in AdminEditHall's amenities catalogue.
 const VALET_AMENITY = 'Valet Parking';
@@ -379,9 +379,12 @@ export default function Search() {
         </label>
         <div className="grid grid-cols-2 gap-2">
           {([
-            ['upto300', 'cap_up_to_300'],
-            ['300to1k', 'cap_300_1k'],
-          ] as [CapacityBand, 'cap_up_to_300' | 'cap_300_1k'][]).map(([key, k]) => (
+            ['1-200', 'Up to 200'],
+            ['201-500', '201 – 500'],
+            ['501-1000', '501 – 1k'],
+            ['1001-1500', '1k – 1.5k'],
+            ['1500+', '1,500+'],
+          ] as [CapacityBand, string][]).map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -392,20 +395,9 @@ export default function Search() {
                   : 'border-gold/40 hover:bg-secondary-container/40'
               }`}
             >
-              {t(k)}
+              {label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => setCapacityBand(capacityBand === '1000plus' ? '' : '1000plus')}
-            className={`text-xs py-2 px-3 border rounded-lg transition-colors col-span-2 ${
-              capacityBand === '1000plus'
-                ? 'bg-primary-fixed text-primary border-primary font-bold'
-                : 'border-gold/40 hover:bg-secondary-container/40'
-            }`}
-          >
-            {t('cap_1000_plus')}
-          </button>
         </div>
       </div>
 
@@ -643,10 +635,12 @@ export default function Search() {
                 {t('guest_capacity')}
               </span>
               {([
-                ['upto300', 'cap_up_to_300'],
-                ['300to1k', 'cap_300_1k'],
-                ['1000plus', 'cap_1000_plus'],
-              ] as [CapacityBand, 'cap_up_to_300' | 'cap_300_1k' | 'cap_1000_plus'][]).map(([key, k]) => (
+                ['1-200', 'Up to 200'],
+                ['201-500', '201 – 500'],
+                ['501-1000', '501 – 1k'],
+                ['1001-1500', '1k – 1.5k'],
+                ['1500+', '1,500+'],
+              ] as [CapacityBand, string][]).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"
@@ -657,7 +651,7 @@ export default function Search() {
                       : 'border-gold/40 text-on-surface hover:bg-secondary-container/40'
                   }`}
                 >
-                  {t(k)}
+                  {label}
                 </button>
               ))}
             </div>

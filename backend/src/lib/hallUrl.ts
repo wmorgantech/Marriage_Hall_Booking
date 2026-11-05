@@ -53,19 +53,43 @@ export function buildPaths(halls: UrlHall[]): Map<string, string> {
 /* ---- cached index (all halls, so URLs never change because of approval status) ---- */
 
 const TTL_MS = 30_000;
-let cache: { at: number; byId: Map<string, string>; byPath: Map<string, string> } | null = null;
+type HallPathCache = { at: number; byId: Map<string, string>; byPath: Map<string, string> };
+let cache: HallPathCache | null = null;
+let cacheRefresh: Promise<HallPathCache> | null = null;
 
 /** Call after a hall is created, renamed, moved or deleted. */
-export function invalidateHallPaths() { cache = null; }
+export function invalidateHallPaths() {
+  cache = null;
+  cacheRefresh = null;
+}
 
 async function index(prisma: Pick<PrismaClient, 'hall'>) {
   if (cache && Date.now() - cache.at < TTL_MS) return cache;
-  const rows = await prisma.hall.findMany({ select: { id: true, name: true, area: true, city: true, createdAt: true } });
-  const byId = buildPaths(rows);
-  const byPath = new Map<string, string>();
-  for (const [id, p] of byId) byPath.set(p, id);
-  cache = { at: Date.now(), byId, byPath };
-  return cache;
+  if (cacheRefresh) {
+    await cacheRefresh;
+    if (cache && Date.now() - cache.at < TTL_MS) return cache;
+    return index(prisma);
+  }
+
+  let refresh!: Promise<HallPathCache>;
+  refresh = (async () => {
+    const rows = await prisma.hall.findMany({ select: { id: true, name: true, area: true, city: true, createdAt: true } });
+    const byId = buildPaths(rows);
+    const byPath = new Map<string, string>();
+    for (const [id, p] of byId) byPath.set(p, id);
+    const refreshed = { at: Date.now(), byId, byPath };
+    if (cacheRefresh === refresh) cache = refreshed;
+    return refreshed;
+  })();
+  cacheRefresh = refresh;
+
+  try {
+    const refreshed = await refresh;
+    if (cacheRefresh !== refresh) return index(prisma);
+    return refreshed;
+  } finally {
+    if (cacheRefresh === refresh) cacheRefresh = null;
+  }
 }
 
 /** Adds `path` to each hall (falls back to the id URL for a hall the index has not seen yet). */

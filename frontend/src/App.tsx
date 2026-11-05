@@ -207,20 +207,20 @@ function TopAppBar({ user, onLogout }: { user: SessionUser | null; onLogout: () 
             </div>
           ) : (
             <Link
-              to="/owner/login"
+              to="/admin/login"
               className="hidden sm:inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest bg-primary text-white px-4 py-2 rounded-lg shadow-md shadow-primary/10 hover:bg-primary-container transition"
             >
-              {t('nav_list_hall')}
+              {t('nav_admin_login')}
             </Link>
           )}
 
           {!user && (
             <Link
-              to="/owner/login"
-              aria-label="Account"
+              to="/admin/login"
+              aria-label="Admin Login"
               className="sm:hidden p-2 text-primary hover:bg-surface-container-high rounded-full transition-colors"
             >
-              <span className="material-symbols-outlined">account_circle</span>
+              <span className="material-symbols-outlined">admin_panel_settings</span>
             </Link>
           )}
         </div>
@@ -238,9 +238,9 @@ function SiteFooter() {
   }, []);
 
   return (
-    <footer className="bg-primary-container text-white border-t-4 border-gold py-12 px-6 md:px-8 relative overflow-hidden mt-auto">
+    <footer className="bg-primary-container text-white border-t-4 border-gold py-8 px-6 md:px-8 relative overflow-hidden mt-auto">
       <div className="kolam-bg absolute inset-0 pointer-events-none" aria-hidden />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-[1280px] mx-auto relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-[1280px] mx-auto relative z-10">
         <div>
           <div className="mb-4">
             <Brand dark />
@@ -295,7 +295,7 @@ function SiteFooter() {
 
       </div>
 
-      <div className="max-w-[1280px] mx-auto mt-10 pt-6 border-t border-white/10 text-center relative z-10">
+      <div className="max-w-[1280px] mx-auto mt-6 pt-4 border-t border-white/10 text-center relative z-10">
         <p className="text-[11px] font-serif text-white/50">
           © {new Date().getFullYear()} CheckNBook. Tradition meets elegance.
         </p>

@@ -132,6 +132,58 @@ router.post('/otp/verify', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ------------- OTP-based owner registration (no password) -------------
+
+const registerOtpSchema = z.object({
+  name: z.string().min(2, 'Owner name is required'),
+  phone: z.string().regex(/^\+\d{10,15}$/, 'Use E.164 format, e.g. +919876543210'),
+  email: z.string().email().optional().or(z.literal('').transform(() => undefined)),
+  otp: z.string().length(4),
+  hallName: z.string().min(2, 'Hall name is required').max(120),
+});
+
+router.post('/register-otp', async (req, res, next) => {
+  try {
+    const { name, phone, email, otp, hallName } = registerOtpSchema.parse(req.body);
+    if (!(await verifyOtp(phone, otp))) return res.status(401).json({ error: 'Invalid or expired OTP.' });
+
+    const existing = await prisma.user.findUnique({ where: { phone } });
+    if (existing) return res.status(409).json({ error: 'This phone number is already registered. Please sign in instead.' });
+    if (email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
+      if (emailTaken) return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+    }
+
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+    const user = await prisma.user.create({
+      data: {
+        name,
+        phone,
+        email,
+        passwordHash,
+        role: 'OWNER',
+        halls: {
+          create: {
+            name: hallName.trim(),
+            city: '',
+            area: '',
+            address: '',
+            price: 0,
+            capacity: 0,
+            contactNumber: phone,
+            isApproved: false,
+          },
+        },
+      },
+    });
+    const token = signToken({ sub: user.id, role: user.role });
+    res.status(201).json({
+      token,
+      user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
+    });
+  } catch (e) { next(e); }
+});
+
 // ------------- Admin email-based login (operator console) -------------
 
 const adminLoginSchema = z.object({

@@ -5,6 +5,7 @@ export const dict = {
   // Header / chrome
   nav_explore:        { en: 'Explore',           ta: 'தேடு' },
   nav_list_hall:      { en: 'List your hall',    ta: 'மண்டபம் பதிவுசெய்' },
+  nav_admin_login:    { en: 'Admin Login',       ta: 'நிர்வாக உள்நுழைவு' },
   care_help:          { en: "We're here to help", ta: 'உதவ காத்திருக்கிறோம்' },
 
   // Hero

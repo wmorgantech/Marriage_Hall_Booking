@@ -223,6 +223,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ phone, otp, name }),
     }),
+  registerOtp: (body: { name: string; phone: string; email?: string; otp: string; hallName: string }) =>
+    request<AuthResponse>(`/api/auth/register-otp`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   // ---------- Owner ----------
   myHalls: () => request<Hall[]>(`/api/halls/mine`),

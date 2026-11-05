@@ -143,6 +143,15 @@ img {
   --rdp-accent-color-dark: #064E3B;
   margin: 0;
   font-family: 'Manrope', sans-serif;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 380px) {
+  .rdp {
+    --rdp-cell-size: 32px;
+    font-size: 13px;
+  }
 }
 
 .rdp-caption_label {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { baseSlug, buildPaths, resolveHallPath, slugify, withPaths, invalidateHallPaths } from '../src/lib/hallUrl';
 
 const h = (id: string, name: string, area: string, city: string, created = '2026-01-01') =>
@@ -58,9 +58,18 @@ describe('buildPaths', () => {
 });
 
 describe('withPaths / resolveHallPath (cached index)', () => {
-  const prisma: any = { hall: { findMany: async () => [h('chennai-001', 'Kongu Palace', 'Chromepet', 'Chennai'), h('m1', 'Kongu Palace', 'Chromepet', 'Chennai', '2026-02-01')] } };
-  it('adds path to halls and resolves both ways', async () => {
+  const rows = [h('chennai-001', 'Kongu Palace', 'Chromepet', 'Chennai'), h('m1', 'Kongu Palace', 'Chromepet', 'Chennai', '2026-02-01')];
+  const prisma = { hall: { findMany: async () => rows } };
+
+  beforeEach(() => {
     invalidateHallPaths();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    invalidateHallPaths();
+  });
+
+  it('adds path to halls and resolves both ways', async () => {
     const [a, b, unknown] = await withPaths(prisma, [{ id: 'chennai-001' }, { id: 'm1' }, { id: 'new-hall' }]);
     expect(a.path).toBe('/halls/kongu-palace-chromepet/chennai');
     expect(b.path).toBe('/halls/kongu-palace-chromepet-2/chennai');
@@ -69,5 +78,65 @@ describe('withPaths / resolveHallPath (cached index)', () => {
     expect(await resolveHallPath(prisma, 'Kongu-Palace-Chromepet', 'Chennai')).toBe('chennai-001');
     expect(await resolveHallPath(prisma, 'kongu-palace-chromepet-2', 'chennai')).toBe('m1');
     expect(await resolveHallPath(prisma, 'kongu-palace-chromepet', 'madurai')).toBeNull();
+  });
+
+  it('shares one full-table query across concurrent cold-cache requests', async () => {
+    let resolveRows!: (value: typeof rows) => void;
+    const pendingRows = new Promise<typeof rows>((resolve) => { resolveRows = resolve; });
+    const findMany = vi.fn(() => pendingRows);
+    const concurrentPrisma = { hall: { findMany } };
+
+    const paths = withPaths(concurrentPrisma, [{ id: 'chennai-001' }]);
+    const resolved = resolveHallPath(concurrentPrisma, 'kongu-palace-chromepet', 'chennai');
+    expect(findMany).toHaveBeenCalledTimes(1);
+
+    resolveRows(rows);
+    const [[hall], hallId] = await Promise.all([paths, resolved]);
+    expect(hall.path).toBe('/halls/kongu-palace-chromepet/chennai');
+    expect(hallId).toBe('chennai-001');
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the warm cache without querying again', async () => {
+    const findMany = vi.fn(async () => rows);
+    const warmPrisma = { hall: { findMany } };
+
+    await withPaths(warmPrisma, [{ id: 'chennai-001' }]);
+    await resolveHallPath(warmPrisma, 'kongu-palace-chromepet', 'chennai');
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the cache after its TTL expires', async () => {
+    vi.useFakeTimers();
+    const findMany = vi.fn(async () => rows);
+    const expiringPrisma = { hall: { findMany } };
+
+    await withPaths(expiringPrisma, [{ id: 'chennai-001' }]);
+    vi.advanceTimersByTime(30_001);
+    await withPaths(expiringPrisma, [{ id: 'chennai-001' }]);
+
+    expect(findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares refresh failures and permits a later retry', async () => {
+    let rejectRows!: (reason: Error) => void;
+    const pendingRows = new Promise<typeof rows>((_resolve, reject) => { rejectRows = reject; });
+    const findMany = vi.fn()
+      .mockImplementationOnce(() => pendingRows)
+      .mockResolvedValueOnce(rows);
+    const retryPrisma = { hall: { findMany } };
+
+    const first = withPaths(retryPrisma, [{ id: 'chennai-001' }]);
+    const second = resolveHallPath(retryPrisma, 'kongu-palace-chromepet', 'chennai');
+    expect(findMany).toHaveBeenCalledTimes(1);
+    rejectRows(new Error('database unavailable'));
+
+    const results = await Promise.allSettled([first, second]);
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected']);
+    expect(findMany).toHaveBeenCalledTimes(1);
+
+    await expect(resolveHallPath(retryPrisma, 'kongu-palace-chromepet', 'chennai')).resolves.toBe('chennai-001');
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 });

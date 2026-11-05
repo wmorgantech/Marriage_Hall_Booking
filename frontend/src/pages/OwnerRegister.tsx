@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, setSessionUser, setToken } from '../api/client';
+import { api, storeAuthResponse } from '../api/client';
 import { useT } from '../i18n';
 
 const COUNTRY_CODE = '+91';
@@ -77,15 +77,14 @@ export default function OwnerRegister() {
     setError(null);
     setLoading(true);
     try {
-      const { token, user } = await api.registerOtp({
+      const res = await api.registerOtp({
         name: name.trim(),
         phone: `${COUNTRY_CODE}${phone}`,
         email: email.trim() || undefined,
         otp,
         hallName: hallName.trim(),
       });
-      setToken(token);
-      setSessionUser(user);
+      storeAuthResponse(res);
       window.dispatchEvent(new Event('cnb:auth-changed'));
       nav('/owner/dashboard');
     } catch (err: unknown) {

@@ -5,6 +5,7 @@ import {
   getSessionUser,
   setSessionUser,
   setToken,
+  setRefreshToken,
 } from '../api/client';
 import { toastError, toastSuccess } from '../components/Toast';
 import HallPhoto from '../components/HallPhoto';
@@ -133,7 +134,7 @@ export default function AdminEditHall() {
       .catch((e) => {
         const msg = (e as Error).message ?? '';
         if (/401|403|Unauth|Forbid/i.test(msg)) {
-          setToken(null); setSessionUser(null); nav('/admin/login');
+          setToken(null); setRefreshToken(null); setSessionUser(null); nav('/admin/login');
           return;
         }
         setError(msg);

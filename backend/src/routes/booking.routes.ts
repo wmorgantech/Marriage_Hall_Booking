@@ -110,6 +110,7 @@ router.get('/mine', auth, async (req, res, next) => {
     const bookings = await prisma.booking.findMany({
       where: { userId: req.user!.sub },
       orderBy: { createdAt: 'desc' },
+      take: 200,
       include: { hall: { select: HALL_SELECT } },
     });
     res.json(bookings);

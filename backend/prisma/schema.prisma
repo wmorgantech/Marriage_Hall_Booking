@@ -94,6 +94,9 @@ model Hall {
   updatedAt     DateTime  @updatedAt
 
   @@index([city, area, isApproved])
+  @@index([name])
+  @@index([capacity])
+  @@index([price])
 }
 
 model Area {
@@ -154,4 +157,25 @@ model Booking {
 model MuhurthamDate {
   date      DateTime @id @db.Date
   createdAt DateTime @default(now())
+}
+
+model OtpEntry {
+  phone     String   @id
+  hash      String
+  expiresAt DateTime
+  sentAt    DateTime
+  attempts  Int      @default(0)
+
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  target    String
+  success   Boolean  @default(false)
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([target, createdAt])
+  @@index([createdAt])
 }

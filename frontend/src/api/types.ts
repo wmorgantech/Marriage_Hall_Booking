@@ -73,6 +73,7 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   token: string;
+  refreshToken?: string;
   user: Pick<User, 'id' | 'name' | 'phone' | 'role'>;
 }
 

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   api,
-  setSessionUser,
-  setToken,
+  storeAuthResponse,
   type SessionUser,
 } from '../api/client';
 import { useT } from '../i18n';
@@ -108,8 +107,7 @@ export default function OtpAuthModal({ open, onClose, onSuccess, hallName }: Pro
     setBusy(true);
     try {
       const res = await api.verifyOtp(e164, otp, name.trim() || undefined);
-      setToken(res.token);
-      setSessionUser(res.user);
+      storeAuthResponse(res);
       window.dispatchEvent(new Event('cnb:auth-changed'));
       onSuccess?.(res.user);
       onClose();

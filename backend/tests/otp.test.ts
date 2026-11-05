@@ -1,7 +1,35 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const otpStore = new Map<string, { phone: string; hash: string; expiresAt: Date; sentAt: Date; attempts: number }>();
+
+vi.mock('../src/lib/prisma', () => ({
+  prisma: {
+    otpEntry: {
+      findUnique: vi.fn(async ({ where }: { where: { phone: string } }) => {
+        return otpStore.get(where.phone) ?? null;
+      }),
+      upsert: vi.fn(async ({ where, create, update }: any) => {
+        const entry = { phone: where.phone, ...create, ...update };
+        otpStore.set(where.phone, entry);
+        return entry;
+      }),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      delete: vi.fn(async ({ where }: { where: { phone: string } }) => {
+        otpStore.delete(where.phone);
+        return {};
+      }),
+      update: vi.fn(async ({ where, data }: any) => {
+        const entry = otpStore.get(where.phone);
+        if (!entry) throw new Error('not found');
+        if (data.attempts?.increment) entry.attempts += data.attempts.increment;
+        return entry;
+      }),
+    },
+  },
+}));
+
 import { requestOtp, verifyOtp } from '../src/lib/otp';
 
-// fetch is always mocked: these tests never reach Meta.
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function okResponse() {
@@ -14,7 +42,6 @@ function sentBody(call = -1) {
   return JSON.parse((init as { body: string }).body);
 }
 
-// The code the user would receive on WhatsApp = the body parameter of the last send.
 function sentCode(): string {
   return sentBody().template.components[0].parameters[0].text;
 }
@@ -31,6 +58,7 @@ describe('otp', () => {
     fetchMock = vi.fn(async () => okResponse());
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    otpStore.clear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -44,7 +72,7 @@ describe('otp', () => {
     const code = sentCode();
     expect(code).toMatch(/^\d{4}$/);
     expect(await verifyOtp('+919100000001', code)).toBe(true);
-    expect(await verifyOtp('+919100000001', code)).toBe(false); // single use
+    expect(await verifyOtp('+919100000001', code)).toBe(false);
   });
 
   it('sends the approved otp_new template with the same code in body and copy-code button', async () => {
@@ -57,7 +85,7 @@ describe('otp', () => {
 
     const body = sentBody();
     expect(body.messaging_product).toBe('whatsapp');
-    expect(body.to).toBe('919100000010'); // digits only, no "+"
+    expect(body.to).toBe('919100000010');
     expect(body.type).toBe('template');
     expect(body.template.name).toBe('otp_new');
     expect(body.template.language).toEqual({ code: 'en' });
@@ -98,7 +126,6 @@ describe('otp', () => {
     await requestOtp('+919100000006');
     const code = sentCode();
     vi.advanceTimersByTime(10 * 60 * 1000 - 1000);
-    // still valid at 9m59s: a wrong guess does not consume it
     expect(await verifyOtp('+919100000006', code === '0000' ? '1111' : '0000')).toBe(false);
     expect(await verifyOtp('+919100000006', code)).toBe(true);
 
@@ -119,7 +146,7 @@ describe('otp', () => {
     await requestOtp('+919100000007');
     const first = sentCode();
     await expect(requestOtp('+919100000007')).rejects.toMatchObject({ status: 429 });
-    expect(fetchMock).toHaveBeenCalledTimes(1); // the throttled request never reached Meta
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(31 * 1000);
     await requestOtp('+919100000007');
     const second = sentCode();

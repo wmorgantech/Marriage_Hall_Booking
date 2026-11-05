@@ -3,11 +3,19 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { signToken } from '../lib/jwt';
+import { signToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt';
 import { auth } from '../middleware/auth';
 import { requestOtp, verifyOtp } from '../lib/otp';
+import { checkBruteForce, recordAttempt, pruneOldAttempts } from '../lib/loginGuard';
 
 const router = Router();
+
+function tokenPair(payload: { sub: string; role: 'USER' | 'OWNER' | 'ADMIN' | 'SUPERADMIN' }) {
+  return { token: signToken(payload), refreshToken: signRefreshToken(payload) };
+}
+
+// Prune stale login attempts periodically (best-effort, non-blocking).
+setInterval(() => { pruneOldAttempts().catch(() => {}); }, 60 * 60 * 1000);
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Owner name is required'),
@@ -49,9 +57,9 @@ router.post('/register', async (req, res, next) => {
         },
       },
     });
-    const token = signToken({ sub: user.id, role: user.role });
+    const tokens = tokenPair({ sub: user.id, role: user.role });
     res.status(201).json({
-      token,
+      ...tokens,
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
     });
   } catch (e) { next(e); }
@@ -65,18 +73,26 @@ const loginSchema = z.object({
 router.post('/login', async (req, res, next) => {
   try {
     const { phone, password } = loginSchema.parse(req.body);
+    await checkBruteForce(phone);
+
     const user = await prisma.user.findUnique({ where: { phone } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      await recordAttempt(phone, false, req.ip ?? undefined);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    // Operators sign in with email through /admin-login; phone+password is for hall owners only.
+    if (!ok) {
+      await recordAttempt(phone, false, req.ip ?? undefined);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     if (user.role !== 'OWNER') {
       return res.status(403).json({ error: 'This account cannot sign in here. Operators use the admin console.' });
     }
 
-    const token = signToken({ sub: user.id, role: user.role });
+    await recordAttempt(phone, true, req.ip ?? undefined);
+    const tokens = tokenPair({ sub: user.id, role: user.role });
     res.json({
-      token,
+      ...tokens,
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
     });
   } catch (e) { next(e); }
@@ -124,9 +140,9 @@ router.post('/otp/verify', async (req, res, next) => {
         },
       });
     }
-    const token = signToken({ sub: user.id, role: user.role });
+    const tokens = tokenPair({ sub: user.id, role: user.role });
     res.json({
-      token,
+      ...tokens,
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
     });
   } catch (e) { next(e); }
@@ -176,9 +192,9 @@ router.post('/register-otp', async (req, res, next) => {
         },
       },
     });
-    const token = signToken({ sub: user.id, role: user.role });
+    const tokens = tokenPair({ sub: user.id, role: user.role });
     res.status(201).json({
-      token,
+      ...tokens,
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
     });
   } catch (e) { next(e); }
@@ -194,20 +210,47 @@ const adminLoginSchema = z.object({
 router.post('/admin-login', async (req, res, next) => {
   try {
     const { email, password } = adminLoginSchema.parse(req.body);
+    await checkBruteForce(email);
+
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      await recordAttempt(email, false, req.ip ?? undefined);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
       return res.status(403).json({ error: 'This console is restricted to administrators.' });
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!ok) {
+      await recordAttempt(email, false, req.ip ?? undefined);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-    const token = signToken({ sub: user.id, role: user.role });
+    await recordAttempt(email, true, req.ip ?? undefined);
+    const tokens = tokenPair({ sub: user.id, role: user.role });
     res.json({
-      token,
+      ...tokens,
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
     });
   } catch (e) { next(e); }
+});
+
+// ------------- Token refresh -------------
+
+router.post('/refresh', async (req, res, _next) => {
+  try {
+    const { refreshToken } = z.object({ refreshToken: z.string() }).parse(req.body);
+    const payload = verifyRefreshToken(refreshToken);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true },
+    });
+    if (!user) return res.status(401).json({ error: 'User no longer exists' });
+    const tokens = tokenPair({ sub: user.id, role: user.role });
+    res.json(tokens);
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired refresh token' });
+  }
 });
 
 router.get('/me', auth, async (req, res, next) => {

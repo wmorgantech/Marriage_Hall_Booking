@@ -10,7 +10,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import AdminEditHall from './pages/AdminEditHall';
 import NotFound from './pages/NotFound';
-import { getSessionUser, setSessionUser, setToken, type SessionUser } from './api/client';
+import { getSessionUser, setSessionUser, setToken, setRefreshToken, type SessionUser } from './api/client';
 import { ToastHost } from './components/Toast';
 import LangToggle from './components/LangToggle';
 import { useT } from './i18n';
@@ -32,6 +32,7 @@ export default function App() {
 
   function logout() {
     setToken(null);
+    setRefreshToken(null);
     setSessionUser(null);
     setUser(null);
     window.dispatchEvent(new Event('cnb:auth-changed'));

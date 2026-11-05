@@ -5,6 +5,7 @@ import {
   normalizePhone,
   setSessionUser,
   setToken,
+  setRefreshToken,
   type Availability,
   type Booking,
   type Hall,
@@ -48,6 +49,7 @@ export default function OwnerDashboard() {
     } catch (e: any) {
       if (/401|Unauth/i.test(e.message)) {
         setToken(null);
+        setRefreshToken(null);
         setSessionUser(null);
         nav('/owner/login');
       } else {

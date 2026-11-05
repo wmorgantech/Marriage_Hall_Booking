@@ -5,6 +5,7 @@ import {
   getSessionUser,
   setSessionUser,
   setToken,
+  setRefreshToken,
   type Availability,
   type Hall,
   type ImportCommit,
@@ -50,6 +51,7 @@ export default function AdminDashboard() {
 
   function logout() {
     setToken(null);
+    setRefreshToken(null);
     setSessionUser(null);
     setMe(null);
     window.dispatchEvent(new Event('cnb:auth-changed'));

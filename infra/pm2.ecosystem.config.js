@@ -11,11 +11,15 @@ module.exports = {
       name: 'checknbook-api',
       cwd: __dirname + '/../backend',
       script: 'dist/index.js',
+      instances: process.env.API_INSTANCES || 'max',
+      exec_mode: 'cluster',
+      max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
         PORT: 4000,
         HOST: '0.0.0.0',
         CORS_ORIGIN: 'http://122.173.84.19:5000',
+        DB_POOL_SIZE: 5,
       },
     },
     {

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, setSessionUser, setToken } from '../api/client';
+import { api, setSessionUser, setToken, storeAuthResponse } from '../api/client';
 
 function friendlyError(msg: string): string {
   if (/failed to fetch|networkerror|load failed/i.test(msg)) {
@@ -26,15 +26,14 @@ export default function AdminLogin() {
 
     setLoading(true);
     try {
-      const { token, user } = await api.adminLogin(trimmed, password);
-      if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
+      const res = await api.adminLogin(trimmed, password);
+      if (res.user.role !== 'ADMIN' && res.user.role !== 'SUPERADMIN') {
         setToken(null);
         setSessionUser(null);
         setError('This console is restricted to platform administrators.');
         return;
       }
-      setToken(token);
-      setSessionUser(user);
+      storeAuthResponse(res);
       window.dispatchEvent(new Event('cnb:auth-changed'));
       nav('/admin');
     } catch (err: unknown) {

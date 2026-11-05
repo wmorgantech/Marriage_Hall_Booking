@@ -42,9 +42,24 @@ export function setToken(token: string | null) {
   else localStorage.removeItem('cnb_token');
 }
 
+function getRefreshToken(): string | null {
+  return localStorage.getItem('cnb_refresh_token');
+}
+
+export function setRefreshToken(token: string | null) {
+  if (token) localStorage.setItem('cnb_refresh_token', token);
+  else localStorage.removeItem('cnb_refresh_token');
+}
+
 export function setSessionUser(user: AuthResponse['user'] | null) {
   if (user) localStorage.setItem('cnb_user', JSON.stringify(user));
   else localStorage.removeItem('cnb_user');
+}
+
+export function storeAuthResponse(res: AuthResponse) {
+  setToken(res.token);
+  if (res.refreshToken) setRefreshToken(res.refreshToken);
+  setSessionUser(res.user);
 }
 
 export function getSessionUser(): SessionUser | null {
@@ -61,7 +76,16 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
   if (token) headers.authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  let res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401 && token && !path.includes('/auth/refresh')) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      headers.authorization = `Bearer ${refreshed}`;
+      res = await fetch(`${BASE}${path}`, { ...init, headers });
+    }
+  }
+
   if (!res.ok) {
     let msg = res.status === 429
       ? 'Too many requests right now. Please wait a minute and try again.'
@@ -73,6 +97,38 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
     throw new Error(msg);
   }
   return res;
+}
+
+let refreshPromise: Promise<string | null> | null = null;
+
+async function tryRefreshToken(): Promise<string | null> {
+  const rt = getRefreshToken();
+  if (!rt) return null;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ refreshToken: rt }),
+      });
+      if (!res.ok) {
+        setToken(null);
+        setRefreshToken(null);
+        setSessionUser(null);
+        return null;
+      }
+      const data = await res.json();
+      setToken(data.token);
+      if (data.refreshToken) setRefreshToken(data.refreshToken);
+      return data.token as string;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

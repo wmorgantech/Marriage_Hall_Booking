@@ -19,6 +19,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 
+import { prisma } from './lib/prisma';
 import authRoutes from './routes/auth.routes';
 import hallRoutes from './routes/hall.routes';
 import availabilityRoutes from './routes/availability.routes';
@@ -131,6 +132,18 @@ const otpRequestLimiter = rateLimit({
 });
 
 app.use('/api/auth/otp/request', otpRequestLimiter);
+app.use('/api/auth/register-otp', authLimiter);
+
+// Request timeout: abort responses that take too long.
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS) || 30_000;
+app.use((_req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      res.status(503).json({ error: 'Request timed out' });
+    }
+  });
+  next();
+});
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
@@ -209,6 +222,16 @@ const port = Number(process.env.PORT ?? 4000);
 const host =
   process.env.HOST ?? (isProduction ? '127.0.0.1' : '0.0.0.0');
 
-app.listen(port, host, () => {
+const server = app.listen(port, host, () => {
   console.log(`CheckNBook API listening on http://${host}:${port}`);
 });
+
+function gracefulShutdown(signal: string) {
+  console.log(`${signal} received — shutting down gracefully`);
+  server.close(() => {
+    prisma.$disconnect().finally(() => process.exit(0));
+  });
+  setTimeout(() => process.exit(1), 10_000);
+}
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

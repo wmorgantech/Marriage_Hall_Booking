@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, normalizePhone, setSessionUser, setToken } from '../api/client';
+import { api, normalizePhone, storeAuthResponse } from '../api/client';
 import { useT } from '../i18n';
 
 export default function OwnerLogin() {
@@ -18,9 +18,8 @@ export default function OwnerLogin() {
     if (!e164) { setError('Enter a valid mobile number, e.g. +91 XXXXX XXXXX.'); return; }
     setLoading(true);
     try {
-      const { token, user } = await api.login(e164, password);
-      setToken(token);
-      setSessionUser(user);
+      const res = await api.login(e164, password);
+      storeAuthResponse(res);
       window.dispatchEvent(new Event('cnb:auth-changed'));
       nav('/owner/dashboard');
     } catch (err: unknown) {

@@ -290,6 +290,7 @@ router.get('/:id/bookings', auth, async (req, res, next) => {
     const bookings = await prisma.booking.findMany({
       where: { hallId: hall.id },
       orderBy: { date: 'asc' },
+      take: 500,
     });
     res.json(bookings);
   } catch (e) { next(e); }

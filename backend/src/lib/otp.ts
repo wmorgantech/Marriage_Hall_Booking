@@ -1,20 +1,10 @@
-
 import crypto from 'crypto';
+import { prisma } from './prisma';
 
-// Matches the "This code expires in 10 minutes." line in the approved otp_new template.
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 30 * 1000;
 const MAX_ATTEMPTS = 5;
 const WHATSAPP_TIMEOUT_MS = 8000;
-
-type Entry = {
-  hash: string;
-  expiresAt: number;
-  sentAt: number;
-  attempts: number;
-};
-
-const store = new Map<string, Entry>();
 
 function httpError(status: number, message: string) {
   return Object.assign(new Error(message), { status });
@@ -27,12 +17,8 @@ function hashCode(phone: string, code: string) {
     .digest('hex');
 }
 
-function prune(now: number) {
-  for (const [phone, entry] of store) {
-    if (entry.expiresAt <= now) {
-      store.delete(phone);
-    }
-  }
+async function pruneExpired() {
+  await prisma.otpEntry.deleteMany({ where: { expiresAt: { lte: new Date() } } });
 }
 
 async function deliver(phone: string, code: string): Promise<void> {
@@ -49,7 +35,6 @@ async function deliver(phone: string, code: string): Promise<void> {
     throw httpError(503, 'OTP service is temporarily unavailable.');
   }
 
-  // Convert E.164 phone number to digits only.
   const recipient = phone.replace(/\D/g, '');
 
   const controller = new AbortController();
@@ -74,30 +59,17 @@ async function deliver(phone: string, code: string): Promise<void> {
           type: 'template',
           template: {
             name: templateName,
-            language: {
-              code: language,
-            },
+            language: { code: language },
             components: [
               {
                 type: 'body',
-                parameters: [
-                  {
-                    type: 'text',
-                    text: code,
-                  },
-                ],
+                parameters: [{ type: 'text', text: code }],
               },
-              // Copy-code button: Meta requires the same code again in the button.
               {
                 type: 'button',
                 sub_type: 'url',
                 index: '0',
-                parameters: [
-                  {
-                    type: 'text',
-                    text: code,
-                  },
-                ],
+                parameters: [{ type: 'text', text: code }],
               },
             ],
           },
@@ -107,92 +79,76 @@ async function deliver(phone: string, code: string): Promise<void> {
     );
 
     if (!response.ok) {
-      // Do not log the response body because it may contain
-      // sensitive provider or request information.
       console.error(
         `[WhatsApp OTP] Provider request failed. HTTP ${response.status}`
       );
-
-      throw httpError(
-        503,
-        'Unable to send OTP. Please try again later.'
-      );
+      throw httpError(503, 'Unable to send OTP. Please try again later.');
     }
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
       console.error('[WhatsApp OTP] Provider request timed out.');
-      throw httpError(
-        503,
-        'OTP delivery timed out. Please try again.'
-      );
+      throw httpError(503, 'OTP delivery timed out. Please try again.');
     }
-
-    if ((error as { status?: number }).status) {
-      throw error;
-    }
-
+    if ((error as { status?: number }).status) throw error;
     console.error('[WhatsApp OTP] Provider request failed.');
-    throw httpError(
-      503,
-      'Unable to send OTP. Please try again later.'
-    );
+    throw httpError(503, 'Unable to send OTP. Please try again later.');
   } finally {
     clearTimeout(timeout);
   }
 }
 
-/** Generate and send a one-time code to phone through WhatsApp. */
 export async function requestOtp(phone: string): Promise<void> {
-  const now = Date.now();
+  const now = new Date();
 
-  prune(now);
+  pruneExpired().catch(() => {});
 
-  const prev = store.get(phone);
+  const prev = await prisma.otpEntry.findUnique({ where: { phone } });
 
-  if (prev && now - prev.sentAt < RESEND_COOLDOWN_MS) {
-    throw httpError(
-      429,
-      'Please wait a few seconds before requesting another code.'
-    );
+  if (prev && now.getTime() - prev.sentAt.getTime() < RESEND_COOLDOWN_MS) {
+    throw httpError(429, 'Please wait a few seconds before requesting another code.');
   }
 
-  const code = String(
-    crypto.randomInt(0, 10000)
-  ).padStart(4, '0');
+  const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
 
-  // Store OTP only after WhatsApp API accepts the request.
   await deliver(phone, code);
 
-  store.set(phone, {
-    hash: hashCode(phone, code),
-    expiresAt: now + OTP_TTL_MS,
-    sentAt: now,
-    attempts: 0,
+  await prisma.otpEntry.upsert({
+    where: { phone },
+    update: {
+      hash: hashCode(phone, code),
+      expiresAt: new Date(now.getTime() + OTP_TTL_MS),
+      sentAt: now,
+      attempts: 0,
+    },
+    create: {
+      phone,
+      hash: hashCode(phone, code),
+      expiresAt: new Date(now.getTime() + OTP_TTL_MS),
+      sentAt: now,
+      attempts: 0,
+    },
   });
 }
 
-/** Verify OTP. A correct code is consumed and cannot be reused. */
 export async function verifyOtp(
   phone: string,
   code: string
 ): Promise<boolean> {
-  const now = Date.now();
+  const now = new Date();
 
-  const entry = store.get(phone);
+  const entry = await prisma.otpEntry.findUnique({ where: { phone } });
 
-  if (!entry) {
+  if (!entry) return false;
+
+  if (entry.expiresAt <= now || entry.attempts >= MAX_ATTEMPTS) {
+    await prisma.otpEntry.delete({ where: { phone } }).catch(() => {});
     return false;
   }
 
-  if (
-    entry.expiresAt <= now ||
-    entry.attempts >= MAX_ATTEMPTS
-  ) {
-    store.delete(phone);
-    return false;
-  }
-
-  entry.attempts += 1;
+  await prisma.otpEntry.update({
+    where: { phone },
+    data: { attempts: { increment: 1 } },
+  });
 
   const expectedHash = Buffer.from(entry.hash, 'hex');
   const receivedHash = Buffer.from(hashCode(phone, code), 'hex');
@@ -204,7 +160,7 @@ export async function verifyOtp(
     return false;
   }
 
-  store.delete(phone);
+  await prisma.otpEntry.delete({ where: { phone } }).catch(() => {});
 
   return true;
 }

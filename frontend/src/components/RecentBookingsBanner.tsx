@@ -4,7 +4,10 @@ import { api } from '../api/client';
 
 type Booking = Awaited<ReturnType<typeof api.adminRecentBookings>>[number];
 
+// A booking still PENDING (not confirmed by the venue) after 48h is "overdue".
 const STALE_MS = 2 * 24 * 60 * 60 * 1000; // 48h
+const isOverdue = (b: Pick<Booking, 'status' | 'createdAt'>) =>
+  b.status === 'PENDING' && Date.now() - new Date(b.createdAt).getTime() > STALE_MS;
 const POLL_MS = 30_000;
 const ROTATE_MS = 4_000;
 
@@ -79,9 +82,13 @@ export default function RecentBookingsBanner() {
   }
 
   const current = items[active];
-  const ageMs = Date.now() - new Date(current.createdAt).getTime();
-  const isStale = ageMs > STALE_MS;
-  const staleCount = items.filter((b) => Date.now() - new Date(b.createdAt).getTime() > STALE_MS).length;
+  const isStale = isOverdue(current);
+  const staleCount = items.filter(isOverdue).length;
+  const statusLabel = isStale
+    ? 'Overdue Booking'
+    : current.status === 'CONFIRMED' ? 'Confirmed Booking'
+    : current.status === 'CANCELLED' ? 'Cancelled Booking'
+    : 'New Booking';
 
   return (
     <div
@@ -107,7 +114,7 @@ export default function RecentBookingsBanner() {
             }`} />
           </span>
           <span className="text-[10px] font-bold uppercase tracking-[0.25em]">
-            {isStale ? 'Overdue Booking' : 'New Booking'}
+            {statusLabel}
           </span>
         </div>
 
@@ -124,7 +131,7 @@ export default function RecentBookingsBanner() {
             {current.hall.area ? `${current.hall.area}, ` : ''}{current.hall.city || '—'}
           </span>
           <span className="text-xs md:text-sm font-semibold tabular-nums">
-            · for {bookingDateLabel(current.date)}
+            · {current.customerName} · for {bookingDateLabel(current.date)}
           </span>
           <span className="text-[11px] uppercase tracking-widest font-bold opacity-90">
             · booked {timeAgo(current.createdAt)}

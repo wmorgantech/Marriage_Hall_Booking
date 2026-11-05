@@ -5,11 +5,9 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { signToken } from '../lib/jwt';
 import { auth } from '../middleware/auth';
+import { requestOtp, verifyOtp } from '../lib/otp';
 
 const router = Router();
-
-// Static OTP for dev/demo. Replace with SMS-gateway integration before going live.
-const STATIC_OTP = '1234';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Owner name is required'),
@@ -24,6 +22,10 @@ router.post('/register', async (req, res, next) => {
     const { name, phone, email, password, hallName } = registerSchema.parse(req.body);
     const existing = await prisma.user.findUnique({ where: { phone } });
     if (existing) return res.status(409).json({ error: 'This phone number is already registered. Please sign in instead.' });
+    if (email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
+      if (emailTaken) return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -67,6 +69,10 @@ router.post('/login', async (req, res, next) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    // Operators sign in with email through /admin-login; phone+password is for hall owners only.
+    if (user.role !== 'OWNER') {
+      return res.status(403).json({ error: 'This account cannot sign in here. Operators use the admin console.' });
+    }
 
     const token = signToken({ sub: user.id, role: user.role });
     res.json({
@@ -84,9 +90,8 @@ const otpRequestSchema = z.object({
 
 router.post('/otp/request', async (req, res, next) => {
   try {
-    otpRequestSchema.parse(req.body);
-    // Intentionally empty: SMS gateway integration goes here.
-    // For now we always succeed; the UI tells the user to enter 1234.
+    const { phone } = otpRequestSchema.parse(req.body);
+    await requestOtp(phone);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -100,7 +105,7 @@ const otpVerifySchema = z.object({
 router.post('/otp/verify', async (req, res, next) => {
   try {
     const { phone, name, otp } = otpVerifySchema.parse(req.body);
-    if (otp !== STATIC_OTP) return res.status(401).json({ error: 'Invalid OTP. Try 1234.' });
+    if (!(await verifyOtp(phone, otp))) return res.status(401).json({ error: 'Invalid or expired OTP.' });
 
     let user = await prisma.user.findUnique({ where: { phone } });
     if (user && user.role !== 'USER') {

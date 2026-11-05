@@ -56,9 +56,10 @@ pnpm install
 pnpm dev                  # http://localhost:5173, proxies /api/* to :4000
 ```
 
-Seeded logins:
-- **Owner**: phone `+919876500001`, password `owner123`
-- **Admin**: phone `+910000000000`, password `admin123`
+Logins (no default passwords — set them in `backend/.env`, see `backend/.env.example`):
+- **Demo owners** (`pnpm seed`): phones `+919876500001`–`05`, password = `SEED_OWNER_PASSWORD`
+- **Operator console** (`pnpm seed:admins`): `admin@checknbook.com` / `superadmin@checknbook.com`, passwords = `SEED_ADMIN_PASSWORD` / `SEED_SUPERADMIN_PASSWORD`
+- **Guests** sign in with a phone OTP. There is no SMS gateway yet: in development the code is printed in the API console (`[DEV OTP] ...`).
 
 ## Common scripts (run inside each app's folder)
 
@@ -66,24 +67,27 @@ Seeded logins:
 |---|---|---|
 | `pnpm dev` | `backend/`, `frontend/` | hot-reload dev server |
 | `pnpm build` | `backend/`, `frontend/` | production build |
-| `pnpm prisma:migrate` | `backend/` | create/apply migrations |
+| `pnpm prisma:migrate` | `backend/` | create/apply migrations (dev — may prompt/reset) |
+| `pnpm prisma:deploy` | `backend/` | apply pending migrations only (use this on servers) |
 | `pnpm prisma:studio` | `backend/` | open Prisma Studio |
-| `pnpm seed` | `backend/` | reseed the DB |
+| `pnpm seed` | `backend/` | demo data top-up (idempotent, never deletes; `SEED_RESET=true` wipes halls first) |
+| `pnpm seed:admins` | `backend/` | create/refresh the operator console accounts |
+| `pnpm test` | `backend/` | unit tests (vitest) |
 
 Local Postgres: `docker compose -f infra/docker-compose.yml up -d` (see `infra/README.md`).
 
 ## What's in the starter
 
-- **Data model** (`backend/prisma/schema.prisma`): `User`, `Hall`, `Availability` with the right indexes and a sparse availability table.
+- **Data model** (`backend/prisma/schema.prisma`): `User`, `Hall`, `Area`, `Availability` (sparse), `Booking` (PENDING → CONFIRMED / CANCELLED), `Settings`.
 - **API routes**: `/api/auth/*`, `/api/halls*`, `/api/admin/*` — all the endpoints listed in the architecture doc, with zod validation and JWT + role middleware.
-- **Seed**: five halls across three cities, with a couple of pre-booked dates so search actually filters.
+- **Seed**: 1,000 demo halls across 10 Tamil Nadu cities (unroutable demo phone numbers), areas, and upcoming booked dates so search actually filters.
 - **Frontend pages**: Search, Hall Details, Owner Login/Register, Owner Dashboard with a toggle-able calendar.
 - **Mobile-first CSS**: 44px touch targets, thumb-reach call/WhatsApp buttons, 1/2/3-column grid at 600/960px breakpoints.
 - **WhatsApp click-to-chat**: pure-client `wa.me` link with a pre-filled hall-specific message.
 
 ## What's deliberately NOT in the MVP
 
-Online payment / booking locks, SMS OTP signup, photo uploads, admin web UI (use `pnpm prisma:studio`), React Native app. Rationale in `docs/ARCHITECTURE.md` §11.
+Online payment collection (bookings are requests the venue confirms; the venue collects the advance), a real SMS gateway (OTP codes are generated but only logged in dev; production refuses to send), photo uploads. Rationale in `docs/ARCHITECTURE.md` §11.
 
 ## Next steps
 

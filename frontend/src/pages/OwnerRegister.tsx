@@ -129,7 +129,7 @@ export default function OwnerRegister() {
                 autoComplete="tel-national"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="98765 43210"
+                placeholder="XXXXX XXXXX"
                 className="flex-1 px-3 py-2.5 text-sm tracking-wider focus:outline-none"
                 required
               />
@@ -190,7 +190,7 @@ export default function OwnerRegister() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white font-bold py-4 rounded-xl tracking-widest text-xs shadow-lg shadow-red-900/20 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-white font-bold py-4 rounded-xl tracking-widest text-xs shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? t('creating_account') : t('create_account_btn')}
           </button>

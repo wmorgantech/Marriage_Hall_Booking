@@ -42,10 +42,10 @@ export default function LangToggle({ tone = 'light' }: { tone?: 'light' | 'dark'
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Change language"
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest transition-colors ${
+        className={`relative before:absolute before:-inset-x-1 before:-inset-y-2 before:content-[""] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest transition-colors ${
           isDark
             ? 'bg-white/10 text-white hover:bg-white/15 ring-1 ring-white/15'
-            : 'bg-surface-container-low text-primary hover:bg-surface-container ring-1 ring-yellow-600/20'
+            : 'bg-surface-container-low text-primary hover:bg-surface-container ring-1 ring-gold/20'
         }`}
       >
         <span className="material-symbols-outlined text-[14px]">language</span>
@@ -56,7 +56,7 @@ export default function LangToggle({ tone = 'light' }: { tone?: 'light' | 'dark'
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 mt-2 z-50 w-44 bg-white rounded-xl shadow-soft-lg ring-1 ring-yellow-600/20 overflow-hidden"
+          className="absolute right-0 mt-2 z-50 w-44 bg-white rounded-xl shadow-soft-lg ring-1 ring-gold/20 overflow-hidden"
           style={{ animation: 'cnb-fade-in 140ms ease-out' }}
         >
           {OPTIONS.map((o) => {

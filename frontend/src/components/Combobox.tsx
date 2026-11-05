@@ -9,6 +9,10 @@ type ComboboxProps = {
   emptyLabel?: string;
   /** Optional display formatter — value stays English; label can be bilingual. */
   formatLabel?: (value: string) => string;
+  /** 'line' = underline field (sidebar); 'boxed' = bordered 48px field used in the home search bar. */
+  variant?: 'line' | 'boxed';
+  /** Optional Material Symbols icon shown before the label. */
+  labelIcon?: string;
 };
 
 export default function Combobox({
@@ -19,7 +23,10 @@ export default function Combobox({
   options,
   emptyLabel = 'All',
   formatLabel,
+  variant = 'line',
+  labelIcon,
 }: ComboboxProps) {
+  const boxed = variant === 'boxed';
   const fmt = formatLabel ?? ((s: string) => s);
   const id = useId();
   const listboxId = `${id}-listbox`;
@@ -99,13 +106,14 @@ export default function Combobox({
     <div ref={wrapRef} className="relative">
       <label
         htmlFor={`${id}-input`}
-        className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2"
+        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2"
       >
+        {labelIcon && <span aria-hidden className="material-symbols-outlined text-primary text-[18px] filled">{labelIcon}</span>}
         {label}
       </label>
       <div className="relative">
         <span
-          className="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none"
+          className={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[18px] pointer-events-none ${boxed ? 'left-3.5 text-primary' : 'left-0 text-slate-400'}`}
           aria-hidden
         >
           search
@@ -127,20 +135,20 @@ export default function Combobox({
           onKeyDown={onKeyDown}
           autoComplete="off"
           spellCheck={false}
-          className="w-full border-b border-gold/40 bg-transparent pl-7 pr-8 py-2 focus:outline-none focus:ring-0 focus:border-primary text-sm font-medium text-on-surface placeholder:text-slate-400 transition-colors"
+          className={`w-full text-sm font-medium text-on-surface placeholder:text-slate-400 transition-colors focus:outline-none ${boxed ? 'h-12 rounded-xl border border-gold/50 bg-white pl-10 pr-10 focus:ring-2 focus:ring-primary/20 focus:border-primary' : 'border-b border-gold/40 bg-transparent pl-7 pr-8 py-2 focus:ring-0 focus:border-primary'}`}
         />
         {showClear ? (
           <button
             type="button"
             aria-label={`Clear ${label}`}
             onMouseDown={(e) => { e.preventDefault(); commit(''); }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-primary rounded-full hover:bg-surface-container/70 transition-colors"
+            className={`absolute top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-primary rounded-full hover:bg-surface-container/70 transition-colors ${boxed ? 'right-2.5' : 'right-0'}`}
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         ) : (
           <span
-            className="material-symbols-outlined absolute right-0 top-1/2 text-slate-400 text-[18px] pointer-events-none transition-transform"
+            className={`material-symbols-outlined absolute top-1/2 text-slate-400 text-[18px] pointer-events-none transition-transform ${boxed ? 'right-3.5' : 'right-0'}`}
             style={{ transform: `translateY(-50%) rotate(${open ? 180 : 0}deg)` }}
             aria-hidden
           >
@@ -155,7 +163,7 @@ export default function Combobox({
           ref={listRef}
           role="listbox"
           aria-label={label}
-          className="absolute z-40 mt-2 w-full max-h-64 overflow-auto rounded-xl bg-white shadow-soft-lg ring-1 ring-yellow-600/20 py-1 animate-[fadeIn_120ms_ease-out]"
+          className="absolute z-40 mt-2 w-full max-h-64 overflow-auto rounded-xl bg-white shadow-soft-lg ring-1 ring-gold/20 py-1 animate-[fadeIn_120ms_ease-out]"
           style={{ animationName: 'cnb-fade-in' }}
         >
           {items.length === 1 && query.trim() ? (

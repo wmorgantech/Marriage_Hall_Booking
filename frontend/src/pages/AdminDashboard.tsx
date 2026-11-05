@@ -5,12 +5,20 @@ import {
   getSessionUser,
   setSessionUser,
   setToken,
+  type Availability,
   type Hall,
+  type ImportCommit,
+  type ImportPreview,
+  type ImportRowResult,
 } from '../api/client';
+import { DayPicker } from 'react-day-picker';
+import AvailabilityCalendar from '../components/AvailabilityCalendar';
+import { loadMuhurthamDates, setMuhurthamDates, toLocalDate, useMuhurthamDates } from '../data/muhurthamDates';
+import HallPhoto from '../components/HallPhoto';
 import RecentBookingsBanner from '../components/RecentBookingsBanner';
 import { toastError, toastSuccess } from '../components/Toast';
 
-type Section = 'dashboard' | 'halls' | 'areas' | 'owners' | 'users' | 'settings';
+type Section = 'dashboard' | 'halls' | 'dates' | 'import' | 'admins' | 'areas' | 'owners' | 'users' | 'settings';
 type HallTab = 'pending' | 'approved' | 'all';
 
 type AdminHall = Hall & { owner?: { id: string; name: string; phone: string } };
@@ -25,9 +33,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function formatINR(n: number) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(n % 100000 === 0 ? 0 : 1)}L`;
-  if (n >= 1000) return `₹${Math.round(n / 1000)}k`;
-  return `₹${n.toLocaleString('en-IN')}`;
+  return `₹${n.toLocaleString('en-IN')}`; // exact, never abbreviated/rounded
 }
 
 export default function AdminDashboard() {
@@ -59,16 +65,16 @@ export default function AdminDashboard() {
   if (!me) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-surface flex">
       {/* Sidebar */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col bg-slate-950 text-slate-100 sticky top-0 h-screen">
+      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col bg-[#06281D] text-slate-100 sticky top-0 h-screen">
         <div className="px-6 py-6 border-b border-white/10">
           <Link to="/" className="flex items-center gap-2 group">
             <span className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-white font-serif font-bold text-base">
               CB
             </span>
-            <span className="text-lg font-black italic font-serif tracking-tight text-white">
-              Check<span className="text-gold">N</span>Book
+            <span className="text-lg font-bold font-serif tracking-tight text-white">
+              check<span className="text-gold">N</span>book
             </span>
           </Link>
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gold mt-2">
@@ -77,14 +83,17 @@ export default function AdminDashboard() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {([
+          {(([
             ['dashboard', 'space_dashboard', 'Dashboard'],
             ['halls', 'temple_hindu', 'Halls'],
+            ['dates', 'event_available', 'Dates'],
+            ['import', 'upload_file', 'Bulk import'],
             ['areas', 'place', 'Areas'],
             ['owners', 'storefront', 'Hall owners'],
             ['users', 'group', 'Guest users'],
+            ['admins', 'admin_panel_settings', 'Admins'],
             ['settings', 'tune', 'Settings'],
-          ] as [Section, string, string][]).map(([key, icon, label]) => (
+          ] as [Section, string, string][]).filter(([key]) => (key !== 'admins' && key !== 'import') || me.role === 'SUPERADMIN')).map(([key, icon, label]) => (
             <button
               key={key}
               type="button"
@@ -129,10 +138,10 @@ export default function AdminDashboard() {
       {/* Main */}
       <div className="flex-1 min-w-0">
         {/* Top mobile nav */}
-        <header className="md:hidden bg-slate-950 text-white px-4 py-3 sticky top-0 z-20">
+        <header className="md:hidden bg-[#06281D] text-white px-4 py-3 sticky top-0 z-20">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-lg font-black italic font-serif tracking-tight">
-              Check<span className="text-gold">N</span>Book
+            <span className="text-lg font-bold font-serif tracking-tight">
+              check<span className="text-gold">N</span>book
             </span>
             <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-gold">
               Operator
@@ -152,9 +161,12 @@ export default function AdminDashboard() {
           >
             <option value="dashboard">Dashboard</option>
             <option value="halls">Halls</option>
+            <option value="dates">Dates</option>
+            {me.role === 'SUPERADMIN' && <option value="import">Bulk import</option>}
             <option value="areas">Areas</option>
             <option value="owners">Hall owners</option>
             <option value="users">Guest users</option>
+            {me.role === 'SUPERADMIN' && <option value="admins">Admins</option>}
             <option value="settings">Settings</option>
           </select>
         </header>
@@ -174,6 +186,9 @@ export default function AdminDashboard() {
 
           {section === 'dashboard' && <Dashboard onError={handleApiError} onJump={setSection} />}
           {section === 'halls' && <HallsSection onError={handleApiError} role={me.role} />}
+          {section === 'dates' && <DatesSection onError={handleApiError} />}
+          {section === 'admins' && me.role === 'SUPERADMIN' && <AdminsSection onError={handleApiError} />}
+          {section === 'import' && me.role === 'SUPERADMIN' && <ImportSection onError={handleApiError} />}
           {section === 'areas' && <AreasSection onError={handleApiError} role={me.role} />}
           {section === 'owners' && <OwnersSection onError={handleApiError} />}
           {section === 'users' && <UsersSection onError={handleApiError} />}
@@ -210,7 +225,9 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
     { key: 'areas', label: 'Areas', value: stats.totalAreas, icon: 'place', tone: 'gold', jump: 'areas' as const },
     { key: 'owners', label: 'Owners', value: stats.totalOwners, icon: 'storefront', tone: 'purple', jump: 'owners' as const },
     { key: 'users', label: 'Guest users', value: stats.totalUsers, icon: 'group', tone: 'rose', jump: 'users' as const },
-    { key: 'booked', label: 'Booked dates', value: stats.totalBookedDates, icon: 'event_busy', tone: 'rose' },
+    { key: 'bookings', label: 'Bookings', value: stats.totalBookings, icon: 'event_available', tone: 'green' },
+    { key: 'pendingBookings', label: 'Awaiting confirmation', value: stats.pendingBookings, icon: 'pending_actions', tone: 'amber' },
+    { key: 'blocked', label: 'Blocked dates', value: stats.totalBookedDates, icon: 'event_busy', tone: 'rose' },
   ];
 
   const activePct = stats && stats.totalHalls > 0 ? Math.round((stats.approvedHalls / stats.totalHalls) * 100) : 0;
@@ -234,10 +251,10 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
         {!stats ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl bg-white animate-pulse border border-yellow-600/10" />
+          Array.from({ length: 11 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl bg-white animate-pulse border border-gold/10" />
           ))
         ) : (
           kpis.map((c) => {
@@ -247,7 +264,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
               <Wrapper
                 key={c.key}
                 {...(c.jump ? { type: 'button', onClick: () => onJump(c.jump!) } : {})}
-                className={`text-left rounded-2xl bg-white border border-yellow-600/10 p-4 shadow-sm hover:shadow-md transition-all ${
+                className={`text-left rounded-2xl bg-white border border-gold/10 p-4 shadow-sm hover:shadow-md transition-all ${
                   c.jump ? 'hover:-translate-y-0.5 cursor-pointer' : ''
                 }`}
               >
@@ -255,7 +272,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
                   <span className={`w-9 h-9 rounded-xl ${t.bg} flex items-center justify-center shrink-0`}>
                     <span className={`material-symbols-outlined ${t.text} text-[20px]`}>{c.icon}</span>
                   </span>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant truncate">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant leading-tight break-words" title={c.label}>
                     {c.label}
                   </p>
                 </div>
@@ -271,7 +288,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Active vs Inactive donut */}
-        <div className="rounded-2xl bg-white border border-yellow-600/10 p-6 shadow-sm">
+        <div className="rounded-2xl bg-white border border-gold/10 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-serif text-lg text-primary font-bold">Listing health</h2>
             <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -299,7 +316,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
         </div>
 
         {/* Halls per city */}
-        <div className="rounded-2xl bg-white border border-yellow-600/10 p-6 shadow-sm lg:col-span-2">
+        <div className="rounded-2xl bg-white border border-gold/10 p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-serif text-lg text-primary font-bold">Halls by city</h2>
             <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -319,7 +336,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
       </div>
 
       {/* Bookings sparkline */}
-      <div className="rounded-2xl bg-white border border-yellow-600/10 p-6 shadow-sm mb-6">
+      <div className="rounded-2xl bg-white border border-gold/10 p-6 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-serif text-lg text-primary font-bold">Bookings, last 14 days</h2>
@@ -339,7 +356,7 @@ function Dashboard({ onError, onJump }: { onError: (e: unknown) => void; onJump:
       </div>
 
       {/* Quick actions */}
-      <div className="rounded-2xl bg-white border border-yellow-600/10 p-6 shadow-sm">
+      <div className="rounded-2xl bg-white border border-gold/10 p-6 shadow-sm">
         <h2 className="font-serif text-h3 text-primary mb-3">Quick actions</h2>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => onJump('halls')}
@@ -402,10 +419,10 @@ function DonutChart({
         offset += dash;
         return el;
       })}
-      <text x="50%" y="50%" textAnchor="middle" dy="-2" fontSize="28" fontFamily="Noto Serif, serif" fontWeight="700" fill="#610000">
+      <text x="50%" y="50%" textAnchor="middle" dy="-2" fontSize="28" fontFamily="Noto Serif, serif" fontWeight="700" fill="#0B4D38">
         {centerLabel}
       </text>
-      <text x="50%" y="50%" textAnchor="middle" dy="22" fontSize="10" fontFamily="Manrope, sans-serif" fill="#5a403c" letterSpacing="2">
+      <text x="50%" y="50%" textAnchor="middle" dy="22" fontSize="10" fontFamily="Manrope, sans-serif" fill="#4A6258" letterSpacing="2">
         {centerSubLabel.toUpperCase()}
       </text>
     </svg>
@@ -478,8 +495,8 @@ function Sparkline({ data }: { data: { date: string; count: number }[] }) {
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32">
       <defs>
         <linearGradient id="cnb-spark" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#610000" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#610000" stopOpacity="0" />
+          <stop offset="0%" stopColor="#0B4D38" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#0B4D38" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -495,11 +512,11 @@ function Sparkline({ data }: { data: { date: string; count: number }[] }) {
       })}
 
       <path d={fillPath} fill="url(#cnb-spark)" />
-      <path d={linePath} stroke="#610000" strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={linePath} stroke="#0B4D38" strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
 
       {points.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r="3" fill="#fff" stroke="#610000" strokeWidth="2">
+          <circle cx={p.x} cy={p.y} r="3" fill="#fff" stroke="#0B4D38" strokeWidth="2">
             <title>{`${p.raw.date}: ${p.raw.count} booking${p.raw.count === 1 ? '' : 's'}`}</title>
           </circle>
           {/* x labels: show every other to avoid clutter */}
@@ -639,7 +656,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
 
       {/* Tabs + filters row */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-white p-1 rounded-full ring-1 ring-yellow-600/20">
+        <div className="flex gap-1 bg-white p-1 rounded-full ring-1 ring-gold/20">
           {([
             ['pending', 'Pending review'],
             ['approved', 'Approved'],
@@ -667,7 +684,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search name, city, area, address, owner…"
-            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-yellow-600/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-gold/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           {filter && (
             <button
@@ -688,7 +705,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
           <select
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="pl-10 pr-8 py-2 rounded-full bg-white border border-yellow-600/30 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+            className="pl-10 pr-8 py-2 rounded-full bg-white border border-gold/30 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
           >
             <option value="">All cities</option>
             {cities.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -710,7 +727,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
-            className="bg-white border border-yellow-600/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="bg-white border border-gold/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             {PAGE_SIZE_OPTIONS.map((n) => (
               <option key={n} value={n}>{n}</option>
@@ -734,7 +751,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
           }
         />
       ) : (
-        <div className={`overflow-x-auto rounded-2xl bg-white border border-yellow-600/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        <div className={`overflow-x-auto rounded-2xl bg-white border border-gold/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low/80 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
               <tr>
@@ -746,18 +763,12 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
                 <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-yellow-600/10">
+            <tbody className="divide-y divide-gold/10">
               {halls.map((h) => (
                 <tr key={h.id} className="hover:bg-surface-container-low/40">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      {h.imageUrl ? (
-                        <img src={h.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover" loading="lazy" />
-                      ) : (
-                        <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-gold/20 flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary text-[20px]">temple_hindu</span>
-                        </span>
-                      )}
+                      <HallPhoto src={h.imageUrl} alt="" iconClass="text-[20px]" className="w-10 h-10 rounded-lg object-cover shrink-0" loading="lazy" />
                       <div className="min-w-0">
                         <Link to={`/halls/${h.id}`} className="font-bold text-primary hover:underline truncate block">
                           {h.name}
@@ -807,7 +818,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
                         rel="noopener noreferrer"
                         title="View hall details"
                         aria-label={`View ${h.name}`}
-                        className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-yellow-600/30 text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors"
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-gold/30 text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">visibility</span>
                       </Link>
@@ -818,7 +829,7 @@ function HallsSection({ onError, role }: { onError: (e: unknown) => void; role: 
                           to={`/admin/halls/${h.id}/edit`}
                           title="Edit hall details"
                           aria-label={`Edit ${h.name}`}
-                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-yellow-600/30 text-secondary hover:bg-secondary-container/40 hover:text-primary transition-colors"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-gold/30 text-secondary hover:bg-secondary-container/40 hover:text-primary transition-colors"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </Link>
@@ -901,7 +912,7 @@ function Pagination({
         <span className="font-bold tabular-nums text-on-surface">{total.toLocaleString('en-IN')}</span>
         {' '}records
       </p>
-      <nav className="flex items-center gap-1" aria-label="Pagination">
+      <nav className="flex flex-wrap items-center justify-end gap-1" aria-label="Pagination">
         <PageButton disabled={page === 1} onClick={() => onPage(1)} aria-label="First page">
           <span className="material-symbols-outlined text-base">first_page</span>
         </PageButton>
@@ -944,7 +955,7 @@ function PageButton({
       className={`min-w-[34px] h-9 px-2 inline-flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${
         active
           ? 'bg-primary text-white shadow-sm'
-          : 'bg-white border border-yellow-600/30 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white'
+          : 'bg-white border border-gold/30 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white'
       }`}
       {...rest}
     >
@@ -1011,7 +1022,7 @@ function OwnersSection({ onError }: { onError: (e: unknown) => void }) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search name, phone, email…"
-            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-yellow-600/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-gold/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           {filter && (
             <button type="button" aria-label="Clear search" onClick={() => setFilter('')}
@@ -1024,7 +1035,7 @@ function OwnersSection({ onError }: { onError: (e: unknown) => void }) {
         <div className="ml-auto flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
           Show
           <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}
-            className="bg-white border border-yellow-600/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+            className="bg-white border border-gold/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
             {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
           per page
@@ -1039,7 +1050,7 @@ function OwnersSection({ onError }: { onError: (e: unknown) => void }) {
           subtitle={debouncedFilter ? 'Try a different search term.' : "As owners register their halls, they'll appear here."}
         />
       ) : (
-        <div className={`overflow-x-auto rounded-2xl bg-white border border-yellow-600/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        <div className={`overflow-x-auto rounded-2xl bg-white border border-gold/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low/80 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
               <tr>
@@ -1050,7 +1061,7 @@ function OwnersSection({ onError }: { onError: (e: unknown) => void }) {
                 <th className="text-right px-4 py-3">Joined</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-yellow-600/10">
+            <tbody className="divide-y divide-gold/10">
               {owners.map((o) => (
                 <tr key={o.id} className="hover:bg-surface-container-low/40">
                   <td className="px-4 py-3 font-bold text-primary">{o.name}</td>
@@ -1120,7 +1131,7 @@ function UsersSection({ onError }: { onError: (e: unknown) => void }) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search name, phone, email…"
-            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-yellow-600/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-gold/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           {filter && (
             <button type="button" aria-label="Clear search" onClick={() => setFilter('')}
@@ -1133,7 +1144,7 @@ function UsersSection({ onError }: { onError: (e: unknown) => void }) {
         <div className="ml-auto flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
           Show
           <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}
-            className="bg-white border border-yellow-600/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+            className="bg-white border border-gold/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
             {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
           per page
@@ -1148,7 +1159,7 @@ function UsersSection({ onError }: { onError: (e: unknown) => void }) {
           subtitle={debouncedFilter ? 'Try a different search term.' : 'OTP-verified visitors will appear here as they sign in.'}
         />
       ) : (
-        <div className={`overflow-x-auto rounded-2xl bg-white border border-yellow-600/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        <div className={`overflow-x-auto rounded-2xl bg-white border border-gold/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low/80 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
               <tr>
@@ -1158,7 +1169,7 @@ function UsersSection({ onError }: { onError: (e: unknown) => void }) {
                 <th className="text-right px-4 py-3">Verified</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-yellow-600/10">
+            <tbody className="divide-y divide-gold/10">
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-surface-container-low/40">
                   <td className="px-4 py-3 font-bold text-primary">{u.name}</td>
@@ -1265,7 +1276,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
   async function remove(a: AreaRow) {
     const force = a.hallCount > 0;
     const msg = force
-      ? `${a.name} has ${a.hallCount} hall${a.hallCount === 1 ? '' : 's'} attached. Existing halls keep the "${a.name}" tag, but the area will no longer appear in admin pickers. Continue?`
+      ? `${a.name} has ${a.hallCount} hall${a.hallCount === 1 ? '' : 's'} attached. Those halls keep the "${a.name}" area, so it will still appear in search filters while they exist. Continue?`
       : `Delete area "${a.name}" (${a.city})?`;
     if (!window.confirm(msg)) return;
     setBusyId(a.id);
@@ -1293,7 +1304,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
       </div>
 
       {/* Add-area card */}
-      <form onSubmit={add} className="bg-white rounded-2xl border border-yellow-600/10 shadow-sm p-5 mb-4 flex flex-wrap items-end gap-3">
+      <form onSubmit={add} className="bg-white rounded-2xl border border-gold/10 shadow-sm p-5 mb-4 flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[180px]">
           <label className="block text-[11px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
             City
@@ -1304,7 +1315,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
             value={newCity}
             onChange={(e) => setNewCity(e.target.value)}
             placeholder="e.g. Coimbatore"
-            className="w-full border border-yellow-600/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+            className="w-full border border-gold/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
             required
           />
           <datalist id="ar-cities">
@@ -1320,7 +1331,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="e.g. Saibaba Colony"
-            className="w-full border border-yellow-600/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+            className="w-full border border-gold/30 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
             required
           />
         </div>
@@ -1342,7 +1353,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search area or city…"
-            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-yellow-600/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full pl-10 pr-9 py-2 rounded-full bg-white border border-gold/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           {filter && (
             <button type="button" aria-label="Clear search" onClick={() => setFilter('')}
@@ -1356,7 +1367,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
           <select
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="pl-10 pr-8 py-2 rounded-full bg-white border border-yellow-600/30 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+            className="pl-10 pr-8 py-2 rounded-full bg-white border border-gold/30 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
           >
             <option value="">All cities</option>
             {cities.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1365,7 +1376,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
         <div className="ml-auto flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
           Show
           <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}
-            className="bg-white border border-yellow-600/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+            className="bg-white border border-gold/30 rounded-lg px-2 py-1 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
             {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
           per page
@@ -1377,7 +1388,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
       ) : rows.length === 0 ? (
         <EmptyCard title={debouncedFilter || city ? 'No areas match' : 'No areas yet'} subtitle={debouncedFilter || city ? 'Try a different search or city.' : 'Add an area above to get started.'} />
       ) : (
-        <div className={`overflow-x-auto rounded-2xl bg-white border border-yellow-600/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        <div className={`overflow-x-auto rounded-2xl bg-white border border-gold/10 shadow-sm transition-opacity ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low/80 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
               <tr>
@@ -1388,7 +1399,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
                 <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-yellow-600/10">
+            <tbody className="divide-y divide-gold/10">
               {rows.map((a) => {
                 const isEditing = editId === a.id;
                 return (
@@ -1396,13 +1407,13 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
                     <td className="px-4 py-3 font-bold text-primary">
                       {isEditing ? (
                         <input value={editCity} onChange={(e) => setEditCity(e.target.value)}
-                          className="border border-yellow-600/40 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          className="border border-gold/40 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                       ) : a.city}
                     </td>
                     <td className="px-4 py-3">
                       {isEditing ? (
                         <input value={editName} onChange={(e) => setEditName(e.target.value)}
-                          className="border border-yellow-600/40 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                          className="border border-gold/40 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                       ) : a.name}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums font-bold">{a.hallCount}</td>
@@ -1416,7 +1427,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
                               {busyId === a.id ? <span className="spin" /> : 'Save'}
                             </button>
                             <button type="button" onClick={cancelEdit}
-                              className="px-3 py-1.5 rounded-lg border border-yellow-600/30 text-on-surface-variant text-[11px] font-bold uppercase tracking-widest hover:bg-surface-container">
+                              className="px-3 py-1.5 rounded-lg border border-gold/30 text-on-surface-variant text-[11px] font-bold uppercase tracking-widest hover:bg-surface-container">
                               Cancel
                             </button>
                           </>
@@ -1424,7 +1435,7 @@ function AreasSection({ onError, role }: { onError: (e: unknown) => void; role: 
                           <>
                             <button type="button" onClick={() => startEdit(a)}
                               title="Rename area"
-                              className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-yellow-600/30 text-secondary hover:bg-secondary-container/40 hover:text-primary transition-colors">
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-gold/30 text-secondary hover:bg-secondary-container/40 hover:text-primary transition-colors">
                               <span className="material-symbols-outlined text-[18px]">edit</span>
                             </button>
                             {canDelete ? (
@@ -1512,7 +1523,7 @@ function SettingsSection({ onError }: { onError: (e: unknown) => void }) {
       {loading ? (
         <p className="text-on-surface-variant flex items-center gap-2"><span className="spin" /> Loading…</p>
       ) : (
-        <div className="max-w-2xl rounded-2xl bg-white border border-yellow-600/10 shadow-sm p-6 md:p-8">
+        <div className="max-w-2xl rounded-2xl bg-white border border-gold/10 shadow-sm p-6 md:p-8">
           <h2 className="font-serif text-h3 text-primary mb-2">Customer care</h2>
           <p className="text-sm text-on-surface-variant mb-6">
             Visitors will see these as the contact channels for help with the platform itself
@@ -1532,7 +1543,7 @@ function SettingsSection({ onError }: { onError: (e: unknown) => void }) {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+918012345678"
+                placeholder="+91XXXXXXXXXX"
                 className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white ${
                   phoneValid ? 'border-gold/40 focus:border-primary' : 'border-error focus:ring-error/40'
                 }`}
@@ -1591,12 +1602,510 @@ function SettingsSection({ onError }: { onError: (e: unknown) => void }) {
   );
 }
 
+function isoDay(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function toggleDay(list: Date[], d: Date): Date[] {
+  return list.some((x) => isoDay(x) === isoDay(d)) ? list.filter((x) => isoDay(x) !== isoDay(d)) : [...list, d];
+}
+
+function DatesSection({ onError }: { onError: (e: unknown) => void }) {
+  const muhurtham = useMuhurthamDates();
+  const [pickedMuhurtham, setPickedMuhurtham] = useState<Date[]>([]);
+  const [muhurthamBusy, setMuhurthamBusy] = useState(false);
+
+  const [halls, setHalls] = useState<Hall[]>([]);
+  const [hallId, setHallId] = useState('');
+  const [avail, setAvail] = useState<Availability[]>([]);
+  const [pickedBooked, setPickedBooked] = useState<Date[]>([]);
+  const [availBusy, setAvailBusy] = useState(false);
+
+  useEffect(() => {
+    void loadMuhurthamDates(true);
+    api.adminListHalls({ approved: 'all', limit: 100 })
+      .then((r) => setHalls(r.halls))
+      .catch(onError);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  function loadAvail(id: string) {
+    if (!id) { setAvail([]); return; }
+    api.getAvailability(id).then(setAvail).catch(onError);
+  }
+  useEffect(() => {
+    setPickedBooked([]);
+    loadAvail(hallId);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [hallId]);
+
+  async function changeMuhurtham(action: 'add' | 'remove', dates: string[]) {
+    if (dates.length === 0) return;
+    setMuhurthamBusy(true);
+    try {
+      const next = action === 'add'
+        ? await api.adminAddMuhurthamDates(dates)
+        : await api.adminRemoveMuhurthamDates(dates);
+      setMuhurthamDates(next);
+      setPickedMuhurtham([]);
+      toastSuccess(action === 'add' ? 'Muhurtham dates added' : 'Muhurtham dates removed', `${dates.length} date(s) updated.`);
+    } catch (e) { onError(e); toastError('Could not update muhurtham dates', (e as Error).message); }
+    finally { setMuhurthamBusy(false); }
+  }
+
+  async function setBooked(status: 'BOOKED' | 'AVAILABLE') {
+    if (!hallId || pickedBooked.length === 0) return;
+    setAvailBusy(true);
+    try {
+      await api.setAvailability(hallId, pickedBooked.map(isoDay), status);
+      toastSuccess('Dates updated', `${pickedBooked.length} date(s) marked ${status === 'BOOKED' ? 'booked' : 'available'}.`);
+      setPickedBooked([]);
+      loadAvail(hallId);
+    } catch (e) { onError(e); toastError('Could not update dates', (e as Error).message); }
+    finally { setAvailBusy(false); }
+  }
+
+  const today = isoDay(new Date());
+  const upcoming = muhurtham.filter((d) => d >= today);
+  const known = new Set(muhurtham);
+  const newOnes = pickedMuhurtham.map(isoDay).filter((d) => !known.has(d));
+  const removable = pickedMuhurtham.map(isoDay).filter((d) => known.has(d));
+
+  return (
+    <section className="space-y-10">
+      <div>
+        <h1 className="font-serif text-3xl font-bold text-primary">Dates</h1>
+        <p className="text-on-surface-variant mt-1">
+          Manage the muhurtham calendar shown to customers, and mark each hall's dates as booked or available.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-soft-lg border border-gold/10 p-6">
+        <h2 className="font-serif text-xl font-bold text-primary mb-1">★ Muhurtham dates</h2>
+        <p className="text-sm text-on-surface-variant mb-4">
+          Click plain dates to add them as muhurtham. Click an existing green date to select it for removal.
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex justify-center">
+            <DayPicker
+              mode="multiple"
+              selected={pickedMuhurtham}
+              onDayClick={(d) => setPickedMuhurtham((l) => toggleDay(l, d))}
+              modifiers={{ muhurtham: muhurtham.map(toLocalDate) }}
+              modifiersClassNames={{ muhurtham: 'rdp-day_muhurtham' }}
+            />
+          </div>
+          <div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                type="button"
+                disabled={muhurthamBusy || newOnes.length === 0}
+                onClick={() => changeMuhurtham('add', newOnes)}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 disabled:opacity-50"
+              >
+                Add {newOnes.length || ''} as muhurtham
+              </button>
+              <button
+                type="button"
+                disabled={muhurthamBusy || removable.length === 0}
+                onClick={() => changeMuhurtham('remove', removable)}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 disabled:opacity-50"
+              >
+                Remove {removable.length || ''}
+              </button>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+              Upcoming ({upcoming.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
+              {upcoming.map((d) => (
+                <span key={d} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-green-100 border border-green-400 text-green-900 text-xs font-bold">
+                  {toLocalDate(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  <button
+                    type="button"
+                    disabled={muhurthamBusy}
+                    aria-label={`Remove ${d}`}
+                    onClick={() => changeMuhurtham('remove', [d])}
+                    className="w-5 h-5 rounded-full hover:bg-green-200 inline-flex items-center justify-center"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </span>
+              ))}
+              {upcoming.length === 0 && <span className="text-sm text-on-surface-variant">No upcoming muhurtham dates.</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-soft-lg border border-gold/10 p-6">
+        <h2 className="font-serif text-xl font-bold text-primary mb-1">Hall booked dates</h2>
+        <p className="text-sm text-on-surface-variant mb-4">
+          Pick a hall, select dates on the calendar, then mark them booked or available. Dates with an active booking must be cancelled from the booking itself.
+        </p>
+        <select
+          value={hallId}
+          onChange={(e) => setHallId(e.target.value)}
+          className="w-full md:w-96 mb-4 rounded-lg border border-gold/30 px-3 py-2 text-sm"
+        >
+          <option value="">Select a hall…</option>
+          {halls.map((h) => (
+            <option key={h.id} value={h.id}>{h.name} — {h.city}</option>
+          ))}
+        </select>
+        {hallId && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="flex justify-center">
+              <AvailabilityCalendar
+                availability={avail}
+                mode="toggle"
+                selected={pickedBooked}
+                onToggle={(d) => setPickedBooked((l) => toggleDay(l, d))}
+              />
+            </div>
+            <div>
+              <p className="text-sm mb-3">
+                <span className="font-bold">{pickedBooked.length}</span> date(s) selected
+                {pickedBooked.length > 0 && (
+                  <button type="button" onClick={() => setPickedBooked([])} className="ml-3 text-xs underline text-on-surface-variant">Clear</button>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={availBusy || pickedBooked.length === 0}
+                  onClick={() => setBooked('BOOKED')}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 disabled:opacity-50"
+                >
+                  Mark booked
+                </button>
+                <button
+                  type="button"
+                  disabled={availBusy || pickedBooked.length === 0}
+                  onClick={() => setBooked('AVAILABLE')}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 disabled:opacity-50"
+                >
+                  Mark available
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AdminsSection({ onError }: { onError: (e: unknown) => void }) {
+  const [admins, setAdmins] = useState<Awaited<ReturnType<typeof api.adminListAdmins>> | null>(null);
+  const [target, setTarget] = useState<{ id: string; name: string; email: string | null } | null>(null);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.adminListAdmins().then(setAdmins).catch(onError);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  function generate() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    setPassword(Array.from(bytes, (b) => chars[b % chars.length]).join(''));
+  }
+
+  async function submit() {
+    if (!target) return;
+    setBusy(true);
+    try {
+      await api.adminResetAdminPassword(target.id, password);
+      toastSuccess('Password reset', `${target.email ?? target.name} can now sign in with the new password.`);
+      setTarget(null);
+      setPassword('');
+    } catch (e) { onError(e); toastError('Could not reset password', (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section>
+      <h1 className="font-serif text-3xl font-bold text-primary">Admins</h1>
+      <p className="text-on-surface-variant mt-1 mb-4">Reset the sign-in password for an Admin account.</p>
+      <div className="bg-white rounded-2xl shadow-soft-lg border border-gold/10 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-widest text-on-surface-variant">
+              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {(admins ?? []).map((a) => (
+              <tr key={a.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-semibold">{a.name}</td>
+                <td className="px-4 py-3">{a.email}</td>
+                <td className="px-4 py-3">{a.role === 'SUPERADMIN' ? '★ Super Admin' : 'Admin'}</td>
+                <td className="px-4 py-3 text-right">
+                  {a.role === 'ADMIN' ? (
+                    <button
+                      type="button"
+                      onClick={() => { setTarget(a); setPassword(''); }}
+                      className="px-3 py-1.5 rounded-lg bg-primary text-white text-[11px] font-bold uppercase tracking-widest hover:opacity-90"
+                    >
+                      Reset password
+                    </button>
+                  ) : (
+                    <span className="text-xs text-on-surface-variant">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {target && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setTarget(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-serif text-xl font-bold text-primary mb-1">Reset password</h2>
+            <p className="text-sm text-on-surface-variant mb-4">{target.email ?? target.name}</p>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">
+              New password (min 10 characters)
+            </label>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="off"
+                className="flex-1 rounded-lg border border-gold/30 px-3 py-2 text-sm font-mono"
+              />
+              <button type="button" onClick={generate} className="px-3 rounded-lg border border-gold/30 text-xs font-bold">
+                Generate
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-4">Share it with the admin securely; it is not shown again.</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setTarget(null)} className="px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button
+                type="button"
+                disabled={busy || password.length < 10}
+                onClick={submit}
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold disabled:opacity-50"
+              >
+                {busy ? 'Saving…' : 'Reset password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function EmptyCard({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="rounded-2xl bg-white border border-yellow-600/10 p-12 text-center">
+    <div className="rounded-2xl bg-white border border-gold/10 p-12 text-center">
       <span className="material-symbols-outlined text-5xl text-gold/60">search_off</span>
       <h3 className="font-serif text-h3 text-primary mt-3 mb-1">{title}</h3>
       <p className="text-on-surface-variant text-sm">{subtitle}</p>
+    </div>
+  );
+}
+
+/* ----------------------- Bulk import (SuperAdmin) ----------------------- */
+function ImportSection({ onError }: { onError: (e: unknown) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [done, setDone] = useState<ImportCommit | null>(null);
+  const [busy, setBusy] = useState<'preview' | 'commit' | null>(null);
+  const [filter, setFilter] = useState<'all' | ImportRowResult['status']>('all');
+
+  function pick(f: File | null) {
+    setPreview(null);
+    setDone(null);
+    setFilter('all');
+    if (f && !/\.xlsx$/i.test(f.name)) { toastError('Wrong file type', 'Please choose an .xlsx file.'); setFile(null); return; }
+    if (f && f.size > 5 * 1024 * 1024) { toastError('File too large', 'The limit is 5 MB.'); setFile(null); return; }
+    setFile(f);
+  }
+
+  async function runPreview() {
+    if (!file) return;
+    setBusy('preview');
+    try { setPreview(await api.adminImportPreview(file)); }
+    catch (e) {
+      const msg = (e as Error).message;
+      if (/401|403|Unauth|Forbid/i.test(msg)) onError(e);
+      else toastError('Could not read the file', msg);
+    }
+    finally { setBusy(null); }
+  }
+
+  async function runCommit() {
+    if (!file) return;
+    setBusy('commit');
+    try {
+      const res = await api.adminImportCommit(file);
+      setDone(res);
+      setPreview(null);
+      toastSuccess('Import complete', `${res.summary.hallsCreated} hall(s) saved as pending approval.`);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (/401|403|Unauth|Forbid/i.test(msg)) onError(e);
+      else toastError('Import failed - nothing was saved', msg);
+    } finally { setBusy(null); }
+  }
+
+  const view = done ?? preview;
+  const rows = (view?.results ?? []).filter((r) => filter === 'all' || r.status === filter);
+  const badge = (r: ImportRowResult): [string, string] =>
+    r.saved ? ['Imported', 'bg-green-100 text-green-800']
+    : r.status === 'valid' ? [done ? 'Not saved' : 'Ready', 'bg-green-100 text-green-800']
+    : r.status === 'duplicate' ? ['Duplicate', 'bg-amber-100 text-amber-800']
+    : ['Error', 'bg-red-100 text-red-800'];
+
+  return (
+    <section>
+      <div className="mb-6">
+        <h1 className="font-serif text-3xl font-bold text-primary">Bulk import</h1>
+        <p className="text-on-surface-variant mt-1">
+          Import cities, areas, marriage halls and their owners from an Excel file. Imported halls stay pending until you approve them.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+        <ol className="text-sm text-on-surface-variant list-decimal ml-5 space-y-1 mb-5">
+          <li>Download the template and fill in one row per hall (owner / manager on the same row).</li>
+          <li>Upload the completed .xlsx file and review the preview.</li>
+          <li>Confirm to save the valid rows. Rows with errors or duplicates are skipped.</li>
+        </ol>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => api.adminImportTemplate().catch((e) => toastError('Download failed', (e as Error).message))}
+            className="px-4 py-2 rounded-lg border border-primary text-primary text-sm font-bold hover:bg-primary/5"
+          >
+            Download Excel template
+          </button>
+          <label className="px-4 py-2 rounded-lg bg-slate-100 text-sm font-semibold cursor-pointer hover:bg-slate-200">
+            {file ? file.name : 'Choose .xlsx file'}
+            <input type="file" accept=".xlsx" className="hidden" onChange={(e) => { pick(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+          </label>
+          <button
+            type="button"
+            disabled={!file || busy !== null}
+            onClick={runPreview}
+            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold disabled:opacity-50"
+          >
+            {busy === 'preview' ? 'Checking...' : 'Preview'}
+          </button>
+        </div>
+      </div>
+
+      {view && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex flex-wrap gap-3 mb-4 text-sm">
+            {done ? (
+              <>
+                <Stat label="Halls imported" value={done.summary.hallsCreated} tone="green" />
+                <Stat label="Owners created" value={done.summary.ownersCreated} />
+                <Stat label="Areas created" value={done.summary.areasCreated} />
+                <Stat label="Skipped (duplicates)" value={done.summary.skipped} tone="amber" />
+                <Stat label="Failed" value={done.summary.failed} tone="red" />
+              </>
+            ) : (
+              <>
+                <Stat label="Ready to import" value={view.summary.valid} tone="green" />
+                <Stat label="Duplicates" value={view.summary.duplicates} tone="amber" />
+                <Stat label="Errors" value={view.summary.errors} tone="red" />
+                <Stat label="New owners" value={view.summary.newOwners} />
+                <Stat label="New areas" value={view.summary.newAreas} />
+              </>
+            )}
+          </div>
+
+          {done && (
+            <p className="text-sm text-on-surface-variant mb-4">
+              Imported halls are <b>pending</b>. Open <b>Halls - Pending</b> to review and approve them; they appear on the website only after approval.
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as typeof filter)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="all">All rows ({view.results.length})</option>
+              <option value="valid">{done ? 'Imported' : 'Ready'}</option>
+              <option value="duplicate">Duplicates</option>
+              <option value="error">Errors</option>
+            </select>
+            {(view.summary.errors > 0 || view.summary.duplicates > 0) && (
+              <button
+                type="button"
+                onClick={() => api.adminImportReport(view.results).catch((e) => toastError('Download failed', (e as Error).message))}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold hover:bg-slate-50"
+              >
+                Download error report (Excel)
+              </button>
+            )}
+            {preview && (
+              <button
+                type="button"
+                disabled={busy !== null || preview.summary.valid === 0}
+                onClick={runCommit}
+                className="ml-auto px-5 py-2 rounded-lg bg-primary text-white text-sm font-bold disabled:opacity-50"
+              >
+                {busy === 'commit' ? 'Importing...' : `Confirm import (${preview.summary.valid})`}
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-widest text-on-surface-variant border-b border-slate-200">
+                  <th className="py-2 pr-3">Sheet</th>
+                  <th className="py-2 pr-3">Row</th>
+                  <th className="py-2 pr-3">Hall / Area</th>
+                  <th className="py-2 pr-3">City / Area</th>
+                  <th className="py-2 pr-3">Owner</th>
+                  <th className="py-2 pr-3">Result</th>
+                  <th className="py-2">Messages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const [text, cls] = badge(r);
+                  return (
+                    <tr key={`${r.sheet}-${r.row}`} className="border-b border-slate-100 align-top">
+                      <td className="py-2 pr-3">{r.sheet}</td>
+                      <td className="py-2 pr-3 tabular-nums">{r.row}</td>
+                      <td className="py-2 pr-3 font-semibold">{r.label || '-'}</td>
+                      <td className="py-2 pr-3">{r.city}{r.area && r.sheet === 'Halls' ? ` / ${r.area}` : ''}</td>
+                      <td className="py-2 pr-3 tabular-nums">{r.ownerPhone}</td>
+                      <td className="py-2 pr-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${cls}`}>{text}</span></td>
+                      <td className="py-2 text-on-surface-variant">{r.messages.join('; ')}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' | 'red' }) {
+  const color = tone === 'green' ? 'text-green-700' : tone === 'amber' ? 'text-amber-700' : tone === 'red' ? 'text-red-700' : 'text-on-surface';
+  return (
+    <div className="px-4 py-2 rounded-lg bg-slate-50 border border-slate-200">
+      <p className={`text-xl font-bold tabular-nums ${color}`}>{value}</p>
+      <p className="text-[11px] uppercase tracking-widest text-on-surface-variant">{label}</p>
     </div>
   );
 }

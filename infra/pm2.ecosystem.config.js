@@ -3,8 +3,8 @@
 // `cd frontend && pnpm build`):
 //   pm2 start infra/pm2.ecosystem.config.js
 //
-// API   -> http://<server-ip>:4100  (CORS_ORIGIN must match the web origin below)
-// Web   -> http://<server-ip>:4173  (static build served from frontend/dist)
+// API   -> http://<server-ip>:4000  (CORS_ORIGIN must match the web origin below)
+// Web   -> http://<server-ip>:5000  (static build served from frontend/dist)
 module.exports = {
   apps: [
     {

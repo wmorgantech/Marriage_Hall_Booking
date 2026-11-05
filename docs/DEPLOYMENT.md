@@ -174,8 +174,9 @@ VITE_API_BASE_URL=https://checknbook.yourdomain.com
 ```bash
 # From ~/app
 cd backend
-pnpm prisma:migrate -- --name init     # creates tables
-pnpm seed                               # sample data (remove later for real launch)
+pnpm prisma:deploy                      # applies pending migrations (never use `migrate dev` on a server)
+pnpm seed:admins                        # operator accounts — set SEED_ADMIN_PASSWORD / SEED_SUPERADMIN_PASSWORD first
+# `pnpm seed` loads DEMO halls — do not run it on a real launch database.
 pnpm build                              # compiles TS → dist/
 cd ../frontend
 pnpm build                              # outputs frontend/dist
@@ -258,7 +259,8 @@ Visit **`https://checknbook.yourdomain.com`** — padlock should be green.
 
 - Open the site, search a city + date → halls render.
 - Click WhatsApp on a hall → `wa.me` opens with a pre-filled message.
-- Log in as the seeded owner (`+919876500001` / `owner123`) → dashboard loads → toggle a date → it persists after refresh.
+- Register a test owner → dashboard loads → toggle a date → it persists after refresh.
+- Guest sign-in needs an OTP: production requires an SMS gateway implemented in `backend/src/lib/otp.ts` first.
 - `curl https://checknbook.yourdomain.com/health` → `{"ok":true}`.
 
 ---

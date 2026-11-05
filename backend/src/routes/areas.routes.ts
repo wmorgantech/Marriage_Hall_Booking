@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { auth, requireRole } from '../middleware/auth';
+import { invalidateHallPaths } from '../lib/hallUrl';
 
 const router = Router();
 
@@ -110,6 +111,7 @@ adminAreas.patch('/:id', async (req, res, next) => {
           area: after.name,
         },
       });
+      invalidateHallPaths(); // hall URLs include the area and city
     }
     res.json(after);
   } catch (e) { next(e); }

@@ -43,7 +43,7 @@ const patchSchema = z.object({
     .optional(),
 });
 
-router.patch('/admin/settings', auth, requireRole('ADMIN'), async (req, res, next) => {
+router.patch('/admin/settings', auth, requireRole('ADMIN', 'SUPERADMIN'), async (req, res, next) => {
   try {
     const data = patchSchema.parse(req.body);
     await getOrCreate();

@@ -44,20 +44,15 @@ export default function AdminLogin() {
     }
   }
 
-  function fillDemo(role: 'admin' | 'superadmin') {
-    if (role === 'admin') { setEmail('admin@checknbook.com'); setPassword('admin123'); }
-    else { setEmail('superadmin@checknbook.com'); setPassword('super123'); }
-  }
-
   return (
-    <div className="min-h-screen flex items-stretch bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex items-stretch bg-[#06281D] text-slate-100">
       {/* Left panel — brand & message */}
       <aside className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-16">
         <div
           className="absolute inset-0 opacity-20"
           style={{
             backgroundImage:
-              'radial-gradient(circle at 25% 30%, #d4af37 0, transparent 40%), radial-gradient(circle at 75% 70%, #610000 0, transparent 45%)',
+              'radial-gradient(circle at 25% 30%, #C69A45 0, transparent 40%), radial-gradient(circle at 75% 70%, #0B4D38 0, transparent 45%)',
           }}
         />
         <div className="relative z-10 max-w-md">
@@ -65,8 +60,8 @@ export default function AdminLogin() {
             <span className="flex items-center justify-center h-12 w-12 rounded-lg bg-primary text-white font-serif font-bold text-xl shadow-lg ring-1 ring-gold/60">
               CB
             </span>
-            <span className="text-3xl font-black italic font-serif tracking-tight text-white">
-              Check<span className="text-gold">N</span>Book
+            <span className="text-3xl font-bold font-serif tracking-tight text-white">
+              check<span className="text-gold">N</span>book
             </span>
           </div>
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gold mb-3">
@@ -96,14 +91,14 @@ export default function AdminLogin() {
       </aside>
 
       {/* Right — form */}
-      <main className="flex-1 flex items-center justify-center p-6 md:p-12 bg-slate-50 text-on-surface">
+      <main className="flex-1 flex items-center justify-center p-6 md:p-12 bg-surface text-on-surface">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
             <span className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary text-white font-serif font-bold text-lg">
               CB
             </span>
-            <span className="text-2xl font-black italic font-serif tracking-tight text-primary">
-              Check<span className="text-gold">N</span>Book
+            <span className="text-2xl font-bold font-serif tracking-tight text-primary">
+              check<span className="text-gold">N</span>book
             </span>
           </div>
 
@@ -139,7 +134,7 @@ export default function AdminLogin() {
                     autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@checknbook.com"
+                    placeholder="you@company.com"
                     className="w-full border border-gold/40 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white"
                     required
                   />
@@ -174,7 +169,7 @@ export default function AdminLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary text-white font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs shadow-lg shadow-red-900/30 active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full bg-primary text-white font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs shadow-lg shadow-primary/30 active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -198,32 +193,6 @@ export default function AdminLogin() {
               <Link to="/" className="text-primary font-bold hover:underline">
                 Back to site
               </Link>
-            </p>
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Demo accounts — click to fill
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button
-                type="button"
-                onClick={() => fillDemo('admin')}
-                className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 ring-1 ring-white/10"
-              >
-                admin@checknbook.com
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo('superadmin')}
-                className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-gold/20 text-gold hover:bg-gold/30 ring-1 ring-gold/40"
-              >
-                superadmin@checknbook.com
-              </button>
-            </div>
-            <p className="mt-2 text-[10px] text-slate-500">
-              Passwords: <span className="font-bold">admin123</span> /{' '}
-              <span className="font-bold">super123</span>
             </p>
           </div>
         </div>

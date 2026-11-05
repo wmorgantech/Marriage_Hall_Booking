@@ -1,3 +1,12 @@
+// Demo-data seed (LOCAL / STAGING ONLY).
+//
+//   pnpm seed                 → idempotent top-up: inserts anything missing, never deletes
+//   SEED_RESET=true pnpm seed → ALSO wipes all halls + availability first (destructive)
+//
+// Demo owner login password comes from SEED_OWNER_PASSWORD (set it in backend/.env).
+// Demo contact numbers use the unroutable +9100000xxxxx range so the Call/WhatsApp
+// buttons can never reach a real person.
+import 'dotenv/config';
 import { PrismaClient, type AvailabilityStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -61,6 +70,12 @@ const TAMIL_NADU: Record<string, string[]> = {
   ],
 };
 
+// First three digits of each city's real postal PIN range.
+const PINCODE_PREFIX: Record<string, string> = {
+  Chennai: '600', Coimbatore: '641', Madurai: '625', Tiruchirappalli: '620', Salem: '636',
+  Tirunelveli: '627', Erode: '638', Vellore: '632', Thanjavur: '613', Dindigul: '624',
+};
+
 const NAME_PREFIXES = [
   'Sri', 'Sree', 'Shri', 'Suvarna', 'Raja', 'Rani', 'Lakshmi', 'Saraswathi', 'Meenakshi',
   'Kamakshi', 'Annapoorna', 'Murugan', 'Ganesh', 'Balaji', 'Venkatesha', 'Dakshina',
@@ -81,14 +96,12 @@ const HALL_IMAGES = [
   'https://images.unsplash.com/photo-1530023367847-a683933f4172?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1478146059778-26028b07395a?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=75&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1503002032858-29dc0155f38f?w=1200&q=75&auto=format&fit=crop',
+  // (a dead URL, photo-1503002032858, and an unrelated business-handshake photo were removed from this list)
   'https://images.unsplash.com/photo-1509610973147-232dfea52a97?w=1200&q=75&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1507504031003-b417219a0fde?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1464047736614-af63643285bf?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=1200&q=75&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=1200&q=75&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200&q=75&auto=format&fit=crop',
 ];
 
@@ -107,9 +120,11 @@ function pick<T>(rng: () => number, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+// Valid E.164 shape but not a routable Indian mobile (those start +916..+919) —
+// seeded halls must never ring a real person.
 function formatPhone(rng: () => number): string {
-  let n = '+9198';
-  for (let i = 0; i < 8; i++) n += Math.floor(rng() * 10);
+  let n = '+9100000';
+  for (let i = 0; i < 5; i++) n += Math.floor(rng() * 10);
   return n;
 }
 
@@ -135,18 +150,28 @@ type HallSeed = {
 };
 
 async function main() {
-  console.log('🧹  Wiping existing halls + availability…');
-  await prisma.availability.deleteMany();
-  await prisma.hall.deleteMany();
+  // Seeds ~1,000 fabricated demo halls. It must never run against a real database.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    throw new Error(
+      'Refusing to run the demo seed against NODE_ENV=production. ' +
+        'If you really intend to seed this database, set ALLOW_SEED=true explicitly.',
+    );
+  }
+  const ownerPassword = process.env.SEED_OWNER_PASSWORD;
+  if (!ownerPassword) {
+    throw new Error('Set SEED_OWNER_PASSWORD (e.g. in backend/.env) — the demo owners need a password.');
+  }
 
-  // -------- Users (admin + a pool of 5 owners) --------
-  const adminPwd = await bcrypt.hash('admin123', 10);
-  const ownerPwd = await bcrypt.hash('owner123', 10);
-  const admin = await prisma.user.upsert({
-    where: { phone: '+910000000000' },
-    update: {},
-    create: { name: 'Admin', phone: '+910000000000', passwordHash: adminPwd, role: 'ADMIN' },
-  });
+  if (process.env.SEED_RESET === 'true') {
+    console.log('SEED_RESET=true — wiping existing halls + availability…');
+    await prisma.availability.deleteMany();
+    await prisma.hall.deleteMany();
+  } else {
+    console.log('Top-up mode: existing data is kept (set SEED_RESET=true to wipe halls first).');
+  }
+
+  // -------- Users (a pool of 5 demo owners; operator accounts come from seed-admins.ts) --------
+  const ownerPwd = await bcrypt.hash(ownerPassword, 10);
 
   const ownerSeeds = [
     { name: 'Ravi Kumar',    phone: '+919876500001' },
@@ -169,24 +194,28 @@ async function main() {
   const allHalls: HallSeed[] = [];
   const cityEntries = Object.entries(TAMIL_NADU);
 
+  // Hall names are unique across the whole dataset (not just within a city).
+  const usedNames = new Set<string>();
+
   cityEntries.forEach(([city, areas], cityIdx) => {
     const rng = mulberry32(1000 + cityIdx);
-    const usedNames = new Set<string>();
 
     for (let i = 1; i <= HALLS_PER_CITY; i++) {
-      // Unique-ish name within city
+      const area = pick(rng, areas);
       let name = `${pick(rng, NAME_PREFIXES)} ${pick(rng, NAME_SUFFIXES)}`;
       let attempts = 0;
-      while (usedNames.has(name) && attempts < 10) {
+      while (usedNames.has(name) && attempts < 30) {
         name = `${pick(rng, NAME_PREFIXES)} ${pick(rng, NAME_SUFFIXES)}`;
         attempts++;
       }
+      // 450 prefix/suffix pairs < 1,000 halls, so fall back to a location qualifier.
+      if (usedNames.has(name)) name = `${name} – ${area}`;
       if (usedNames.has(name)) name = `${name} ${pad(i, 2)}`;
       usedNames.add(name);
 
-      const area = pick(rng, areas);
       const streetNo = 1 + Math.floor(rng() * 280);
-      const address = `No. ${streetNo}, ${area}, ${city} - ${600000 + Math.floor(rng() * 99999)}`;
+      const pincode = `${PINCODE_PREFIX[city]}${String(Math.floor(rng() * 1000)).padStart(3, '0')}`;
+      const address = `No. ${streetNo}, ${area}, ${city} - ${pincode}`;
 
       // Price buckets — 55k..480k in 5k steps
       const price = 55000 + Math.floor(rng() * 86) * 5000;
@@ -221,7 +250,7 @@ async function main() {
     }
   });
 
-  console.log(`🌱  Seeding ${allHalls.length} halls across ${cityEntries.length} Tamil Nadu cities…`);
+  console.log(`Seeding ${allHalls.length} halls across ${cityEntries.length} Tamil Nadu cities…`);
 
   // Chunked createMany to stay under parameter limits
   const CHUNK = 200;
@@ -230,11 +259,16 @@ async function main() {
     await prisma.hall.createMany({ data: slice, skipDuplicates: true });
   }
 
-  // -------- Availability: BOOKED dates for ~18% of halls --------
-  console.log('📅  Generating availability (booked) rows…');
+  // -------- Areas: keep the admin-managed Area table in step with the hall data --------
+  const areaRows = cityEntries.flatMap(([city, areas]) => areas.map((name) => ({ city, name })));
+  await prisma.area.createMany({ data: areaRows, skipDuplicates: true });
+
+  // -------- Availability: upcoming BOOKED dates (next 120 days) for ~18% of halls --------
+  console.log('Generating availability (booked) rows…');
   const availRows: { hallId: string; date: Date; status: AvailabilityStatus }[] = [];
-  const baseStart = new Date('2026-05-01T00:00:00.000Z').getTime();
-  const windowDays = 90;
+  const now = new Date();
+  const baseStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const windowDays = 120;
   const rng = mulberry32(4242);
   for (const h of allHalls) {
     if (rng() > 0.18) continue;
@@ -255,11 +289,10 @@ async function main() {
     await prisma.availability.createMany({ data: slice, skipDuplicates: true });
   }
 
-  console.log('✅ Seed complete.');
-  console.log(`   Admin  → phone ${admin.phone} / admin123`);
-  console.log(`   Owner  → phone ${owners[0].phone} / owner123`);
-  console.log(`   Halls  → ${allHalls.length} total (${HALLS_PER_CITY} × ${cityEntries.length} TN cities)`);
-  console.log(`   Booked → ${availRows.length} availability rows`);
+  console.log('Seed complete.');
+  console.log(`   Owners → ${owners.map((o) => o.phone).join(', ')} (password: SEED_OWNER_PASSWORD)`);
+  console.log(`   Halls  → ${allHalls.length} generated (${HALLS_PER_CITY} × ${cityEntries.length} TN cities); existing ids are skipped`);
+  console.log(`   Areas  → ${areaRows.length} generated; Booked → ${availRows.length} upcoming availability rows generated`);
 }
 
 main()

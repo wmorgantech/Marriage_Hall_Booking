@@ -16,24 +16,34 @@ type Seed = {
   role: 'ADMIN' | 'SUPERADMIN';
 };
 
-const ACCOUNTS: Seed[] = [
-  {
-    email: 'admin@checknbook.com',
-    password: 'admin123',
-    phone: '+910000000001',
-    name: 'Platform Admin',
-    role: 'ADMIN',
-  },
-  {
-    email: 'superadmin@checknbook.com',
-    password: 'super123',
-    phone: '+910000000002',
-    name: 'Super Admin',
-    role: 'SUPERADMIN',
-  },
-];
+// Passwords always come from the environment (backend/.env) — there are no
+// built-in defaults, so no environment can end up with a guessable operator login.
+function required(name: 'SEED_ADMIN_PASSWORD' | 'SEED_SUPERADMIN_PASSWORD'): string {
+  const v = process.env[name];
+  if (!v || v.length < 12) {
+    throw new Error(`Set ${name} (min 12 characters) in backend/.env before running this script.`);
+  }
+  return v;
+}
 
 async function main() {
+  const ACCOUNTS: Seed[] = [
+    {
+      email: 'admin@checknbook.com',
+      password: required('SEED_ADMIN_PASSWORD'),
+      phone: '+910000000001',
+      name: 'Platform Admin',
+      role: 'ADMIN',
+    },
+    {
+      email: 'superadmin@checknbook.com',
+      password: required('SEED_SUPERADMIN_PASSWORD'),
+      phone: '+910000000002',
+      name: 'Super Admin',
+      role: 'SUPERADMIN',
+    },
+  ];
+
   for (const a of ACCOUNTS) {
     const passwordHash = await bcrypt.hash(a.password, 10);
     const user = await prisma.user.upsert({

@@ -12,7 +12,7 @@ import AdminEditHall from './pages/AdminEditHall';
 import NotFound from './pages/NotFound';
 import { getSessionUser, setSessionUser, setToken, setRefreshToken, type SessionUser } from './api/client';
 import { ToastHost } from './components/Toast';
-import LangToggle from './components/LangToggle';
+
 import { useT } from './i18n';
 
 export default function App() {
@@ -135,7 +135,7 @@ function CustomerCareBar() {
               <span className="font-bold">{contact.customerCareEmail}</span>
             </a>
           )}
-          <LangToggle tone="dark" />
+          {/* LangToggle removed per user request — re-enable when Tamil translations are complete */}
         </div>
       </div>
     </div>

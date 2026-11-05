@@ -64,7 +64,11 @@ export function buildHallWhere(query: Record<string, unknown>): HallWhereResult 
 
   const where: any = { isApproved: true };
   if (city) where.city = { equals: city, mode: 'insensitive' };
-  if (area) where.area = { equals: area, mode: 'insensitive' };
+  if (area) {
+    const areas = area.split(',').map((a) => a.trim()).filter(Boolean);
+    if (areas.length === 1) where.area = { equals: areas[0], mode: 'insensitive' };
+    else if (areas.length > 1) where.area = { in: areas };
+  }
   if (q) {
     where.OR = [
       { name: { contains: q, mode: 'insensitive' } },

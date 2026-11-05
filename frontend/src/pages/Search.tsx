@@ -25,6 +25,8 @@ const CAPACITY_BANDS: Record<Exclude<CapacityBand, ''>, { min?: number; max?: nu
 // Must match the label in AdminEditHall's amenities catalogue.
 const VALET_AMENITY = 'Valet Parking';
 
+const AI_SEARCH_ENABLED = false;
+
 const PAGE_SIZE = 12;
 // Used only until /halls/filters reports the real price range.
 const FALLBACK_PRICE_RANGE = { min: 50000, max: 500000 };
@@ -45,7 +47,10 @@ export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [options, setOptions] = useState<HallFilters | null>(null);
   const [city, setCity] = useState<string>(() => searchParams.get('city') ?? '');
-  const [area, setArea] = useState<string>(() => searchParams.get('area') ?? '');
+  const [areas, setAreas] = useState<string[]>(() => {
+    const raw = searchParams.get('area') ?? '';
+    return raw ? raw.split(',').map((a) => a.trim()).filter(Boolean) : [];
+  });
   const [q, setQ] = useState<string>(() => searchParams.get('q') ?? '');
   const [selDates, setSelDates] = useState<string[]>(() => datesFromUrl(searchParams).dates);
   const [dateMatch, setDateMatch] = useState<DateMatch>(() => datesFromUrl(searchParams).match);
@@ -102,7 +107,7 @@ export default function Search() {
     const nextQ = searchParams.get('q') ?? '';
     const d = datesFromUrl(searchParams);
     setCity(nextCity);
-    setArea(nextArea);
+    setAreas(nextArea ? nextArea.split(',').map((a) => a.trim()).filter(Boolean) : []);
     setQ(nextQ);
     setSelDates(d.dates);
     setDateMatch(d.match);
@@ -145,7 +150,7 @@ export default function Search() {
     const band = capacityBand ? CAPACITY_BANDS[capacityBand] : undefined;
     return {
       city: city || undefined,
-      area: area || undefined,
+      area: areas.length ? areas.join(',') : undefined,
       q: q || undefined,
       ...(selDates.length ? { dates: selDates, match: dateMatch } : {}),
       hasRooms: hasRooms || undefined,
@@ -172,7 +177,7 @@ export default function Search() {
 
   function clearAll() {
     setCity('');
-    setArea('');
+    setAreas([]);
     setQ('');
     setSelDates([]);
     setDateMatch('all');
@@ -259,9 +264,23 @@ export default function Search() {
     if (applied.city) chips.push({
       key: 'city',
       label: formatCity(applied.city, lang),
-      onRemove: dropParam(['city', 'area'], () => { setCity(''); setArea(''); }),
+      onRemove: dropParam(['city', 'area'], () => { setCity(''); setAreas([]); }),
     });
-    if (applied.area) chips.push({ key: 'area', label: applied.area, onRemove: dropParam(['area'], () => setArea('')) });
+    if (applied.area) {
+      const appliedAreas = applied.area.split(',').map((a) => a.trim()).filter(Boolean);
+      appliedAreas.forEach((a) => chips.push({
+        key: `area-${a}`,
+        label: a,
+        onRemove: dropParam([], () => {
+          const next = appliedAreas.filter((x) => x !== a);
+          setAreas(next);
+          const sp = new URLSearchParams(searchParams);
+          if (next.length) sp.set('area', next.join(',')); else sp.delete('area');
+          setSearchParams(sp, { replace: true });
+          setApplied((prev) => ({ ...prev, area: next.length ? next.join(',') : undefined }));
+        }),
+      }));
+    }
     if (applied.dates?.length) {
       const list = applied.dates.map((d) => fmtDay(d, lang, applied.dates!.length === 1)).join(', ');
       const label = applied.dates.length === 1 ? list : `${list} · ${en(applied.match === 'any' ? 'dates_match_any' : 'dates_match_all')}`;
@@ -309,9 +328,13 @@ export default function Search() {
           <button
             key={a}
             type="button"
-            onClick={() => nav(`/?city=${encodeURIComponent(popularAreas.city)}&area=${encodeURIComponent(a)}`)}
+            onClick={() => {
+              const sel = areas.includes(a) ? areas.filter((x) => x !== a) : [...areas, a];
+              setAreas(sel);
+              if (!city) setCity(popularAreas.city);
+            }}
             className={`px-3.5 py-2.5 sm:py-1.5 rounded-full border text-sm transition-colors ${
-              applied.area === a && applied.city === popularAreas.city
+              areas.includes(a)
                 ? 'bg-primary text-white border-primary font-bold'
                 : 'bg-white border-gold/40 text-on-surface hover:border-primary hover:text-primary'
             }`}
@@ -330,22 +353,33 @@ export default function Search() {
         label={en('city_with_state')}
         placeholder={en('city_placeholder')}
         value={city}
-        onChange={(v) => { setCity(v); setArea(''); }}
+        onChange={(v) => { setCity(v); setAreas([]); }}
         options={options?.cities ?? []}
         emptyLabel={en('all_cities')}
         formatLabel={(c) => formatCity(c, lang)}
       />
 
-      {/* Area */}
+      {/* Area — multi-select chips */}
       {city && areasForCity.length > 0 && (
-        <Combobox
-          label={en('area_label')}
-          placeholder={en('area_placeholder', { city })}
-          value={area}
-          onChange={setArea}
-          options={areasForCity}
-          emptyLabel={en('all_areas')}
-        />
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">{en('area_label')}</label>
+          <div className="flex flex-wrap gap-2">
+            {areasForCity.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAreas((prev) => prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a])}
+                className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                  areas.includes(a)
+                    ? 'bg-primary text-white border-primary font-bold'
+                    : 'bg-white border-gold/40 text-on-surface hover:border-primary hover:text-primary'
+                }`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Price Range */}
@@ -509,6 +543,7 @@ export default function Search() {
       {/* Search bar — overlaps the hero's bottom edge; every field is a 48px control with an icon label above */}
       <div className="relative z-20 -mt-24 lg:-mt-28 px-3 sm:px-4 md:px-6">
         <div className="max-w-[1280px] mx-auto bg-white rounded-3xl ring-1 ring-gold/40 shadow-soft-lg p-4 sm:p-5 md:p-7">
+          {AI_SEARCH_ENABLED && (
           <form
             onSubmit={(e) => { e.preventDefault(); void runSmartSearch(false); }}
             aria-label={en('smart_card_title')}
@@ -571,12 +606,15 @@ export default function Search() {
               ))}
             </div>
           </form>
+          )}
 
+          {AI_SEARCH_ENABLED && (
           <div className="flex items-center gap-4 my-5" aria-hidden>
             <span className="h-px flex-1 bg-gold/30" />
             <span className="text-[11px] font-bold tracking-widest text-on-surface-variant">{t('smart_or')}</span>
             <span className="h-px flex-1 bg-gold/30" />
           </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1.35fr_1fr_auto] gap-4 md:gap-5 lg:gap-0 items-end">
             <div className="lg:pr-6">
@@ -586,7 +624,7 @@ export default function Search() {
                 label={en('city_label')}
                 placeholder={en('city_placeholder')}
                 value={city}
-                onChange={(v) => { setCity(v); setArea(''); }}
+                onChange={(v) => { setCity(v); setAreas([]); }}
                 options={options?.cities ?? []}
                 emptyLabel={en('all_cities')}
                 formatLabel={(c) => formatCity(c, lang)}
@@ -677,7 +715,7 @@ export default function Search() {
         </div>
       </div>
 
-      {smart && (
+      {AI_SEARCH_ENABLED && smart && (
         <SmartResults
           result={smart}
           onClear={() => { setSmart(null); setSmartError(null); }}

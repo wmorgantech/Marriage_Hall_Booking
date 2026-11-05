@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { getLang, setLang, type Lang } from '../i18n';
 
 const OPTIONS: { value: Lang; short: string; long: string }[] = [
-  { value: 'both', short: 'EN+TA', long: 'English + தமிழ்' },
   { value: 'en',   short: 'EN',    long: 'English' },
   { value: 'ta',   short: 'TA',    long: 'தமிழ்' },
 ];

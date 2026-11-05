@@ -24,8 +24,12 @@ type Props = {
 export default function MultiDatePicker({ value, match, onChange, onMatch, variant = 'boxed', id }: Props) {
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
+  const [openAbove, setOpenAbove] = useState(false);
+  const [centerPopover, setCenterPopover] = useState(false);
+  const [popoverMaxHeight, setPopoverMaxHeight] = useState<number>();
   const [warn, setWarn] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
   const muhurtham = useMuhurthamDates();
   const today = todayIso();
   const upcoming = muhurtham.filter((d) => d >= today).slice(0, 6);
@@ -38,6 +42,42 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setOpenAbove(false);
+      setCenterPopover(false);
+      setPopoverMaxHeight(undefined);
+      return;
+    }
+
+    const positionPopover = () => {
+      const trigger = box.current?.getBoundingClientRect();
+      const panel = popover.current;
+      if (!trigger || !panel) return;
+
+      const gap = 8;
+      const spaceBelow = window.innerHeight - trigger.bottom - gap;
+      const spaceAbove = trigger.top - gap;
+      const canCenter = spaceBelow < panel.scrollHeight
+        && spaceAbove < panel.scrollHeight
+        && window.innerHeight - gap * 2 >= panel.scrollHeight;
+      const placeAbove = !canCenter && spaceBelow < panel.scrollHeight && spaceAbove > spaceBelow;
+
+      setCenterPopover(canCenter);
+      setOpenAbove(placeAbove);
+      const availableHeight = canCenter ? window.innerHeight - gap * 2 : placeAbove ? spaceAbove : spaceBelow;
+      setPopoverMaxHeight(Math.max(0, Math.min(panel.scrollHeight, availableHeight)));
+    };
+
+    positionPopover();
+    window.addEventListener('resize', positionPopover);
+    window.addEventListener('scroll', positionPopover, true);
+    return () => {
+      window.removeEventListener('resize', positionPopover);
+      window.removeEventListener('scroll', positionPopover, true);
+    };
+  }, [open, upcoming.length, value.length, warn]);
 
   // Always toggle against the newest selection, so two quick taps never drop one of the dates.
   const latest = useRef(value);
@@ -87,11 +127,13 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
 
       {open && (
         <div
+          ref={popover}
           role="dialog"
           aria-label={String(t('dates_label', { inline: true }))}
-          className="absolute z-50 mt-2 left-0 w-[min(22rem,calc(100vw-2rem))] bg-white rounded-2xl shadow-soft-lg ring-1 ring-gold/40 p-4"
+          style={popoverMaxHeight === undefined ? undefined : { maxHeight: popoverMaxHeight }}
+          className={`${centerPopover ? 'fixed top-1/2 -translate-y-1/2' : `absolute ${openAbove ? 'bottom-full mb-2' : 'mt-2'}`} z-50 left-1/2 -translate-x-1/2 w-[min(20rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-1rem)] overflow-y-auto scrollbar-hide bg-white rounded-2xl shadow-soft-lg ring-1 ring-gold/40 p-3`}
         >
-          <p className="text-xs text-on-surface-variant mb-2">{t('dates_hint')}</p>
+          <p className="text-xs text-on-surface-variant mb-1.5">{t('dates_hint')}</p>
           <div className="flex justify-center">
             <DayPicker
               mode="multiple"
@@ -104,16 +146,16 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
           </div>
 
           {upcoming.length > 0 && (
-            <div className="mt-2">
+            <div className="mt-1.5">
               <p className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">{t('dates_muhurtham_quick')}</p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {upcoming.map((d) => (
                   <button
                     key={d}
                     type="button"
                     onClick={() => toggle(d)}
                     aria-pressed={value.includes(d)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                    className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${
                       value.includes(d) ? 'bg-primary text-white border-primary' : 'border-gold/40 hover:border-primary hover:text-primary'
                     }`}
                   >
@@ -125,7 +167,7 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
           )}
 
           {value.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Selected dates">
+            <div className="mt-2 flex flex-wrap gap-1" aria-label="Selected dates">
               {value.map((d) => (
                 <button
                   key={d}
@@ -140,10 +182,10 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
               ))}
             </div>
           )}
-          {warn && <p role="alert" className="mt-2 text-xs text-error">{t('dates_max')}</p>}
+          {warn && <p role="alert" className="mt-1.5 text-xs text-error">{t('dates_max')}</p>}
 
           {value.length > 1 && (
-            <div className="mt-3 grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-container" role="radiogroup" aria-label="Date match">
+            <div className="mt-2 grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-container" role="radiogroup" aria-label="Date match">
               {(['all', 'any'] as const).map((m) => (
                 <button
                   key={m}
@@ -159,7 +201,7 @@ export default function MultiDatePicker({ value, match, onChange, onMatch, varia
             </div>
           )}
 
-          <div className="mt-3 flex justify-between gap-2">
+          <div className="mt-2 flex justify-between gap-2">
             <button
               type="button"
               onClick={() => { onChange([]); setWarn(false); }}

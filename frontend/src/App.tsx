@@ -12,6 +12,7 @@ import AdminEditHall from './pages/AdminEditHall';
 import NotFound from './pages/NotFound';
 import { getSessionUser, setSessionUser, setToken, setRefreshToken, type SessionUser } from './api/client';
 import { ToastHost } from './components/Toast';
+import LangToggle from './components/LangToggle';
 
 import { useT } from './i18n';
 
@@ -135,7 +136,7 @@ function CustomerCareBar() {
               <span className="font-bold">{contact.customerCareEmail}</span>
             </a>
           )}
-          {/* LangToggle removed per user request — re-enable when Tamil translations are complete */}
+          <LangToggle tone="dark" />
         </div>
       </div>
     </div>
@@ -241,8 +242,8 @@ function SiteFooter() {
   return (
     <footer className="bg-primary-container text-white border-t-4 border-gold py-8 px-6 md:px-8 relative overflow-hidden mt-auto">
       <div className="kolam-bg absolute inset-0 pointer-events-none" aria-hidden />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-[1280px] mx-auto relative z-10">
-        <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr] gap-x-8 gap-y-7 max-w-[1280px] mx-auto relative z-10">
+        <div className="sm:col-span-2 md:col-span-1">
           <div className="mb-4">
             <Brand dark />
           </div>
@@ -278,20 +279,19 @@ function SiteFooter() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-3">
-            <h6 className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">
-              For guests
-            </h6>
-            <Link to="/" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-2">Search halls</Link>
-          </div>
-          <div className="flex flex-col gap-3">
-            <h6 className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">
-              For owners
-            </h6>
-            <Link to="/owner/register" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-2">List your hall</Link>
-            <Link to="/owner/login" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-2">Owner sign in</Link>
-          </div>
+        <div className="flex flex-col gap-2">
+          <h6 className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">
+            For guests
+          </h6>
+          <Link to="/" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-1">Search halls</Link>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h6 className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">
+            For owners
+          </h6>
+          <Link to="/owner/register" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-1">List your hall</Link>
+          <Link to="/owner/login" className="text-xs text-white/80 hover:text-gold transition-colors font-serif inline-block py-1">Owner sign in</Link>
         </div>
 
       </div>

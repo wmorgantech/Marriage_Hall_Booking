@@ -9,7 +9,7 @@ const EVENT = 'cnb:lang-changed';
 export function getLang(): Lang {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'en' || v === 'ta' || v === 'both' ? v : 'en';
+    return v === 'ta' ? 'ta' : 'en';
   } catch { return 'en'; }
 }
 
